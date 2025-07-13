@@ -15,3 +15,24 @@ curl https://start.spring.io/starter.zip \
   -o myproject.zip
 ```
 
+## Start the application
+
+```
+./mvnw spring-boot:run
+```
+
+```
+curl -v -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+```
+
+* [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
+https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.1
+   4.2.1
+   response_type
+         REQUIRED.  Value MUST be set to "token".
+
+https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.2
+
+
+* [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662)
+
