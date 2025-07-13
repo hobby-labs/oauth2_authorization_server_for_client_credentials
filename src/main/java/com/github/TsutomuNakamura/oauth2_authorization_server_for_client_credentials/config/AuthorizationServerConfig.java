@@ -21,13 +21,15 @@ import org.springframework.security.oauth2.server.authorization.config.annotatio
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jose.jwk.ECKey;
+import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
+// import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
 
 @Configuration
 public class AuthorizationServerConfig {
@@ -66,15 +68,47 @@ public class AuthorizationServerConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        KeyPair keyPair = generateRsaKey();
-        RSAPublicKey publicKey = (RSAPublicKey) keyPair.getPublic();
-        RSAPrivateKey privateKey = (RSAPrivateKey) keyPair.getPrivate();
-        RSAKey rsaKey = new RSAKey.Builder(publicKey)
-                .privateKey(privateKey)
-                .keyID(UUID.randomUUID().toString())
+        // Option 1: Generate RSA key pair (current approach - works with most clients)
+        KeyPair rsaKeyPair = generateRsaKey();
+        RSAPublicKey rsaPublicKey = (RSAPublicKey) rsaKeyPair.getPublic();
+        RSAPrivateKey rsaPrivateKey = (RSAPrivateKey) rsaKeyPair.getPrivate();
+        RSAKey rsaKey = new RSAKey.Builder(rsaPublicKey)
+                .privateKey(rsaPrivateKey)
+                .keyID("rsa-key-" + UUID.randomUUID().toString())
                 .build();
-        JWKSet jwkSet = new JWKSet(rsaKey);
-        System.out.println("JWK Source initialized");
+        
+        // Option 2: Generate EC key pair (prime256v1/P-256)
+        KeyPair ecKeyPair = generateEcKey();
+        java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
+        java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+        ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                .privateKey(ecPrivateKey)
+                .keyID("ec-key-" + UUID.randomUUID().toString())
+                .build();
+        
+        // Option 3: Load EC keys from files (uncomment to use)
+        // try {
+        //     KeyPair ecKeyPair = KeyLoader.loadECFromFiles(
+        //         "/path/to/ec-private-key.pem", 
+        //         "/path/to/ec-public-key.pem"
+        //     );
+        //     java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
+        //     java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+        //     ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
+        //             .privateKey(ecPrivateKey)
+        //             .keyID("ec-key-from-file")
+        //             .build();
+        // } catch (Exception e) {
+        //     throw new RuntimeException("Failed to load EC key pair from files", e);
+        // }
+        
+        // Create JWK Set with both RSA and EC keys (or just one)
+        JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(rsaKey, ecKey));
+        
+        // Alternatively, use only EC key:
+        // JWKSet jwkSet = new JWKSet(ecKey);
+        
+        System.out.println("JWK Source initialized with RSA and EC keys");
         return new ImmutableJWKSet<>(jwkSet);
     }
 
@@ -83,6 +117,20 @@ public class AuthorizationServerConfig {
         try {
             KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
             keyPairGenerator.initialize(2048);
+            keyPair = keyPairGenerator.generateKeyPair();
+        }
+        catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+        return keyPair;
+    }
+    
+    private static KeyPair generateEcKey() {
+        KeyPair keyPair;
+        try {
+            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
+            java.security.spec.ECGenParameterSpec ecSpec = new java.security.spec.ECGenParameterSpec("secp256r1"); // prime256v1
+            keyPairGenerator.initialize(ecSpec);
             keyPair = keyPairGenerator.generateKeyPair();
         }
         catch (Exception ex) {
