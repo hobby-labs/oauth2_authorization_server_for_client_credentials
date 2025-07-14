@@ -37,6 +37,7 @@ public class AuthorizationServerConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
+        // org.springframework.security:spring-security-oauth2-authorization-server:1.4.0
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
         
         http
@@ -69,13 +70,13 @@ public class AuthorizationServerConfig {
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         // Option 1: Generate RSA key pair (current approach - works with most clients)
-        KeyPair rsaKeyPair = generateRsaKey();
-        RSAPublicKey rsaPublicKey = (RSAPublicKey) rsaKeyPair.getPublic();
-        RSAPrivateKey rsaPrivateKey = (RSAPrivateKey) rsaKeyPair.getPrivate();
-        RSAKey rsaKey = new RSAKey.Builder(rsaPublicKey)
-                .privateKey(rsaPrivateKey)
-                .keyID("rsa-key-" + UUID.randomUUID().toString())
-                .build();
+        // KeyPair rsaKeyPair = generateRsaKey();
+        // RSAPublicKey rsaPublicKey = (RSAPublicKey) rsaKeyPair.getPublic();
+        // RSAPrivateKey rsaPrivateKey = (RSAPrivateKey) rsaKeyPair.getPrivate();
+        // RSAKey rsaKey = new RSAKey.Builder(rsaPublicKey)
+        //         .privateKey(rsaPrivateKey)
+        //         .keyID("rsa-key-" + UUID.randomUUID().toString())
+        //         .build();
         
         // Option 2: Generate EC key pair (prime256v1/P-256)
         KeyPair ecKeyPair = generateEcKey();
@@ -102,9 +103,13 @@ public class AuthorizationServerConfig {
         //     throw new RuntimeException("Failed to load EC key pair from files", e);
         // }
         
+        // // Create JWK Set with both RSA and EC keys (or just one)
+        // JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(rsaKey, ecKey));
+
         // Create JWK Set with both RSA and EC keys (or just one)
-        JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(rsaKey, ecKey));
-        
+        JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(ecKey));
+
+
         // Alternatively, use only EC key:
         // JWKSet jwkSet = new JWKSet(ecKey);
         
