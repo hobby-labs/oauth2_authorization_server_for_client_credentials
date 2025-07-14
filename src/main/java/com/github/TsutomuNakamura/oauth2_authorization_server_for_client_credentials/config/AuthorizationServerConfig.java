@@ -159,9 +159,46 @@ public class AuthorizationServerConfig {
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
         return context -> {
+            // Customize JWT header
             context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
             context.getJwsHeader().type("JWT");  // Add "typ": "JWT" to the header
+            
+            // Option 1: Static certificate (replace with your actual certificate)
+            java.util.List<String> x5c = java.util.Arrays.asList(
+                "MIICdTCCAhugAwIBAgIJAOExample1...", // Your actual certificate in Base64 DER format
+                "MIICdTCCAhugAwIBAgIJAOExample2..."  // Optional: Additional certificates in the chain
+            );
+            
+            // Option 2: Generate self-signed certificate for testing (uncomment to use)
+            /*
+            try {
+                java.util.List<String> x5c = generateSelfSignedCertificate();
+                context.getJwsHeader().header("x5c", x5c);
+                return;
+            } catch (Exception e) {
+                System.err.println("Failed to generate self-signed certificate: " + e.getMessage());
+                // Fall back to static certificate
+            }
+            */
+            
+            context.getJwsHeader().header("x5c", x5c);
+            
+            // Customize JWT payload (claims)
+            context.getClaims().claim("ver", "1");  // Add "ver": "1" to the payload
         };
+    }
+    
+    // Helper method to generate self-signed certificate for testing
+    @SuppressWarnings("unused")
+    private java.util.List<String> generateSelfSignedCertificate() throws Exception {
+        // Generate EC key pair
+        KeyPair keyPair = generateEcKey();
+        
+        // This is a simplified example - in production, use a proper certificate library
+        // For now, return a placeholder certificate
+        String exampleCert = "MIIBkTCB+wIJAMExample..."; // Placeholder
+        
+        return java.util.Arrays.asList(exampleCert);
     }
 
 }
