@@ -158,7 +158,10 @@ public class AuthorizationServerConfig {
 
     @Bean
     public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
-        return context -> context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
+        return context -> {
+            context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
+            context.getJwsHeader().type("JWT");  // Add "typ": "JWT" to the header
+        };
     }
 
 }
