@@ -5,6 +5,9 @@ import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
+
+import javax.crypto.spec.SecretKeySpec;
+
 import java.time.Duration;
 
 import org.springframework.context.annotation.Bean;
@@ -14,18 +17,26 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.Curve;
+import com.nimbusds.jose.jwk.KeyUse;
+import com.nimbusds.jose.jwk.KeyOperation;
+import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -85,6 +96,12 @@ public class AuthorizationServerConfig {
         ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
                 .privateKey(ecPrivateKey)
                 .keyID("ec-key-" + UUID.randomUUID().toString())
+                .algorithm(JWSAlgorithm.ES256)
+                .keyUse(KeyUse.SIGNATURE)
+                .keyOperations(java.util.Set.of(
+                    KeyOperation.SIGN,
+                    KeyOperation.VERIFY
+                ))
                 .build();
         
         // Option 3: Load EC keys from files (uncomment to use)
@@ -117,19 +134,6 @@ public class AuthorizationServerConfig {
         return new ImmutableJWKSet<>(jwkSet);
     }
 
-    private static KeyPair generateRsaKey() {
-        KeyPair keyPair;
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-            keyPairGenerator.initialize(2048);
-            keyPair = keyPairGenerator.generateKeyPair();
-        }
-        catch (Exception ex) {
-            throw new IllegalStateException(ex);
-        }
-        return keyPair;
-    }
-    
     private static KeyPair generateEcKey() {
         KeyPair keyPair;
         try {
@@ -151,4 +155,10 @@ public class AuthorizationServerConfig {
                 .issuer("http://localhost:9000")
                 .build();
     }
+
+    @Bean
+    public OAuth2TokenCustomizer<JwtEncodingContext> jwtCustomizer() {
+        return context -> context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
+    }
+
 }

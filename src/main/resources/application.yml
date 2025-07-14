@@ -1,0 +1,10 @@
+server:
+  port: 9000
+
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jws-algorithms: RS512
+          jwk-set-uri: https://idp.example.org/.well-known/jwks.json
