@@ -85,8 +85,8 @@ public class AuthorizationServerConfig {
             
             // Option 3: Load EC keys from files in classpath
             KeyPair ecKeyPair = KeyLoader.loadECFromClasspath(
-                "keys/ec-private-key.pem", 
-                "keys/ec-public-key.pem"
+                "keys/ec-private-key_never-use-in-production.pem", 
+                "keys/ec-public-key_never-use-in-production.pem"
             );
             
             System.out.println("EC key pair loaded successfully");

@@ -6,14 +6,15 @@ main() {
     jwt=$(jq -r '.access_token' < <(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
     jwt_header=$(echo -n ${jwt} | cut -d '.' -f 1 | base64 --decode)
     jwt_payload=$(echo -n ${jwt} | cut -d '.' -f 2 | base64 --decode)
+    jwt_signature=$(echo -n ${jwt} | cut -d '.' -f 3)
     echo "# Result of Raw Response ###################################################"
     echo "${response_body}" | jq -r '.'
 
-    echo "# Result of Header in JWT ###################################################"
+    echo "# Result of Header in JWT (decoded from base64) ############################"
     echo "${jwt_header}" | jq -r '.'
 
-    echo "# Result of Payload in JWT ###################################################"
-    echo "${jwt_payload}" | jq -r '.'
+    echo "# Result of Payload in JWT (base64) ########################################"
+    echo "${jwt_signature}"
 
     return 0
 }
