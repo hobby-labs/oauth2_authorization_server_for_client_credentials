@@ -5,7 +5,7 @@
 
 if [ $# -eq 0 ]; then
     # Use your provided JWT as default
-    JWT="eyJ4NWMiOlsiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUxLi4uIiwiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUyLi4uIl0sImtpZCI6ImVjLWtleS1mcm9tLWZpbGUiLCJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJteS1jbGllbnQiLCJhdWQiOiJteS1jbGllbnQiLCJ2ZXIiOiIxIiwibmJmIjoxNzUyOTM0NzYzLCJzY29wZSI6WyJyZWFkIl0sImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCIsImV4cCI6MTc1MjkzNTA2MywiaWF0IjoxNzUyOTM0NzYzLCJjbGllbnRfbmFtZSI6ImIxNzM0ZmQ0LTM5ZmQtNGU4Yy1iNWQ0LTU0NDQ3OGNkNTcxNiIsImp0aSI6IjMzZDZlNmE5LTlkMmMtNDZiZS04MjIyLTU5Yjk0NGIwMzlkOSIsImNsaWVudF9pZCI6Im15LWNsaWVudCJ9.s24XP0O_7Dmq_cb3NaUqtIxketIQ3XFZFN0mkwJqHyyj9Eb_-NbfikBFR0ikecOc5USnRV9cV3VVi0FJGmsSqw"
+    JWT="eyJ4NWMiOlsiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUxLi4uIiwiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUyLi4uIl0sImtpZCI6ImVjLWtleS1mcm9tLWZpbGUiLCJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJteS1jbGllbnQiLCJhdWQiOiJteS1jbGllbnQiLCJ2ZXIiOiIxIiwibmJmIjoxNzUyOTMyMjg0LCJzY29wZSI6WyJyZWFkIl0sImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCIsImV4cCI6MTc1MjkzMjU4NCwiaWF0IjoxNzUyOTMyMjg0LCJjbGllbnRfbmFtZSI6IjY1YTVkMTViLTc3MDEtNDMwMS04YmZmLTE4NWQwNjRjMTE4OCIsImp0aSI6ImRiOGM2ZjUyLWU0OTAtNGMzMS05ZmExLTI2YTk1OWM1ODM3YSIsImNsaWVudF9pZCI6Im15LWNsaWVudCJ9.QjPDWu9lg3nImGU3ABT2tHnigvuh674GYQ9WZ-F8xHcDz6eRmY_vr2WNnAxleoxl46RBFcu8lqNceKIRlMT4Aw"
 else
     JWT="$1"
 fi
@@ -41,8 +41,8 @@ SIGNING_INPUT="${HEADER}.${PAYLOAD}"
 echo "2. Signing input prepared (${#SIGNING_INPUT} characters)"
 
 # Step 3: Create temporary files
-echo -n "$SIGNING_INPUT" > "./signing_input"
-echo -n "$SIGNING_INPUT" | base64 -d > "./signing_input.bin"
+TEMP_DIR=$(mktemp -d)
+echo -n "$SIGNING_INPUT" > "$TEMP_DIR/signing_input"
 
 # Step 4: Decode URL-safe base64 signature
 echo "3. Decoding signature..."
@@ -57,12 +57,15 @@ case $MOD in
     3) STANDARD_B64="${STANDARD_B64}=" ;;
 esac
 
+echo "$STANDARD_B64" | base64 -d > "$TEMP_DIR/signature.bin" 2>/dev/null
+
 if [ $? -ne 0 ]; then
     echo "❌ Error: Failed to decode signature"
+    rm -rf "$TEMP_DIR"
     exit 1
 fi
 
-SIG_SIZE=$(wc -c < "./signature.bin")
+SIG_SIZE=$(wc -c < "$TEMP_DIR/signature.bin")
 echo "   Signature decoded successfully ($SIG_SIZE bytes)"
 
 # Step 5: Show public key info
@@ -74,7 +77,7 @@ echo
 # Step 6: Verify signature
 echo "5. Verifying signature with OpenSSL..."
 
-if openssl dgst -sha256 -verify "$PUBLIC_KEY" -signature "./signature.bin" "./signing_input" >/dev/null 2>&1; then
+if openssl dgst -sha256 -verify "$PUBLIC_KEY" -signature "$TEMP_DIR/signature.bin" "$TEMP_DIR/signing_input" >/dev/null 2>&1; then
     echo "✅ SUCCESS: JWT signature is VALID!"
     echo "✅ The token was signed by the corresponding private key"
     echo "✅ The token integrity is verified - no tampering detected"
