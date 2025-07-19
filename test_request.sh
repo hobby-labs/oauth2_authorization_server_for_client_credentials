@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+main() {
+    local response_body jwt jwt_header jwt_payload
+    response_body="$(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
+    jwt=$(jq -r '.access_token' < <(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
+    jwt_header=$(echo -n ${jwt} | cut -d '.' -f 1 | base64 --decode)
+    jwt_payload=$(echo -n ${jwt} | cut -d '.' -f 2 | base64 --decode)
+    echo "# Result of Raw Response ###################################################"
+    echo "${response_body}" | jq -r '.'
+
+    echo "# Result of Header in JWT ###################################################"
+    echo "${jwt_header}" | jq -r '.'
+
+    echo "# Result of Payload in JWT ###################################################"
+    echo "${jwt_payload}" | jq -r '.'
+
+    return 0
+}
+
+main "$@"
