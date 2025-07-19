@@ -40,7 +40,7 @@ import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
-// import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
 
 @Configuration
 public class AuthorizationServerConfig {
@@ -80,58 +80,45 @@ public class AuthorizationServerConfig {
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
-        // Option 1: Generate RSA key pair (current approach - works with most clients)
-        // KeyPair rsaKeyPair = generateRsaKey();
-        // RSAPublicKey rsaPublicKey = (RSAPublicKey) rsaKeyPair.getPublic();
-        // RSAPrivateKey rsaPrivateKey = (RSAPrivateKey) rsaKeyPair.getPrivate();
-        // RSAKey rsaKey = new RSAKey.Builder(rsaPublicKey)
-        //         .privateKey(rsaPrivateKey)
-        //         .keyID("rsa-key-" + UUID.randomUUID().toString())
-        //         .build();
-        
-        // Option 2: Generate EC key pair (prime256v1/P-256)
-        KeyPair ecKeyPair = generateEcKey();
-        java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
-        java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
-        ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
-                .privateKey(ecPrivateKey)
-                .keyID("ec-key-" + UUID.randomUUID().toString())
-                .algorithm(JWSAlgorithm.ES256)
-                .keyUse(KeyUse.SIGNATURE)
-                .keyOperations(java.util.Set.of(
-                    KeyOperation.SIGN,
-                    KeyOperation.VERIFY
-                ))
-                .build();
-        
-        // Option 3: Load EC keys from files (uncomment to use)
-        // try {
-        //     KeyPair ecKeyPair = KeyLoader.loadECFromFiles(
-        //         "/path/to/ec-private-key.pem", 
-        //         "/path/to/ec-public-key.pem"
-        //     );
-        //     java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
-        //     java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
-        //     ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
-        //             .privateKey(ecPrivateKey)
-        //             .keyID("ec-key-from-file")
-        //             .build();
-        // } catch (Exception e) {
-        //     throw new RuntimeException("Failed to load EC key pair from files", e);
-        // }
-        
-        // // Create JWK Set with both RSA and EC keys (or just one)
-        // JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(rsaKey, ecKey));
-
-        // Create JWK Set with both RSA and EC keys (or just one)
-        JWKSet jwkSet = new JWKSet(java.util.Arrays.asList(ecKey));
-
-
-        // Alternatively, use only EC key:
-        // JWKSet jwkSet = new JWKSet(ecKey);
-        
-        System.out.println("JWK Source initialized with RSA and EC keys");
-        return new ImmutableJWKSet<>(jwkSet);
+        try {
+            System.out.println("Loading EC keys from classpath...");
+            
+            // Option 3: Load EC keys from files in classpath
+            KeyPair ecKeyPair = KeyLoader.loadECFromClasspath(
+                "keys/ec-private-key.pem", 
+                "keys/ec-public-key.pem"
+            );
+            
+            System.out.println("EC key pair loaded successfully");
+            
+            java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
+            java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+            
+            ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                    .privateKey(ecPrivateKey)
+                    .keyID("ec-key-from-file")
+                    .algorithm(JWSAlgorithm.ES256)
+                    .keyUse(KeyUse.SIGNATURE)
+                    .keyOperations(java.util.Set.of(
+                        KeyOperation.SIGN,
+                        KeyOperation.VERIFY
+                    ))
+                    .build();
+            
+            JWKSet jwkSet = new JWKSet(ecKey);
+            
+            System.out.println("JWK Source initialized with EC key loaded from files");
+            System.out.println("Key ID: " + ecKey.getKeyID());
+            System.out.println("Algorithm: " + ecKey.getAlgorithm());
+            System.out.println("Key Use: " + ecKey.getKeyUse());
+            
+            return new ImmutableJWKSet<>(jwkSet);
+            
+        } catch (Exception e) {
+            System.err.println("Failed to load EC key pair from files: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Could not load keys from files", e);
+        }
     }
 
     private static KeyPair generateEcKey() {

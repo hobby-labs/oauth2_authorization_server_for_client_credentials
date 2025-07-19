@@ -21,6 +21,8 @@ curl https://start.spring.io/starter.zip \
 ./mvnw spring-boot:run
 ```
 
+## Testing with curl
+
 ```
 $ curl -v -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
 * Host localhost:9000 was resolved.
@@ -54,6 +56,15 @@ $ curl -v -u my-client:my-secret -d "grant_type=client_credentials&scope=read" h
 {"access_token":"eyJ4NWMiOlsiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUxLi4uIiwiTUlJQ2RUQ0NBaHVnQXdJQkFnSUpBT0V4YW1wbGUyLi4uIl0sImtpZCI6ImVjLWtleS0xZjY2YTJmMS0xODBiLTQxNzAtYTBkYy1hZDA4OTliMWM1ODIiLCJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJteS1jbGllbnQiLCJhdWQiOiJteS1jbGllbnQiLCJ2ZXIiOiIxIiwibmJmIjoxNzUyNTM5MDI5LCJzY29wZSI6WyJyZWFkIl0sImlzcyI6Imh0dHA6Ly9sb2NhbGhvc3Q6OTAwMCIsImV4cCI6MTc1MjUzOTMyOSwiaWF0IjoxNzUyNTM5MDI5LCJqdGkiOiIwZTFjODFhOS1jNTg4LTQwMDktYWUyZi1hYzU1OGFlZjgyZWQifQ.nXk4YfNE3_usGFnk31I1DPk6JL90BOem739llkuolT8FnNIT_m00dvQe402RqjNJ88H4dTlBkoqVsPQLR1E91A","scope":"read","token_type":"Bearer","expires_in":299}
 ```
 
+```
+$ response_body="$(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
+$ jwt=$(jq -r '.access_token' < <(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
+$ jwt_header=$(echo -n ${jwt} | cut -d '.' -f 1 | base64 --decode)
+$ jwt_payload=$(echo -n ${jwt} | cut -d '.' -f 2 | base64 --decode)
+$ echo ${jwt_header} | jq
+$ echo ${jwt_payload} | jq
+```
+
 Separate JWT.
 
 | Key | Value |
@@ -71,16 +82,34 @@ Decoded JWT.
 | Payload | {"sub":"my-client","aud":"my-client","ver":"1","nbf":1752539029,"scope":["read"],"iss":"http://localhost:9000","exp":1752539329,"iat":1752539029,"jti":"0e1c81a9-c588-4009-ae2f-ac558aef82ed"} |
 | Signature | (Binary signature) |
 
+## Testing with tool
 
+```
+$ ./test_request.sh
+```
+
+## Generate public key pair with OpenSSL which algorithm is ES256
+
+```
+$ resource_dir="./src/main/resources/keys"
+$ mkdir -p "${resource_dir}"
+
+$ # Generate a raw EC private key
+$ openssl ecparam -genkey -name prime256v1 -noout -out ec-private-key-raw_never-use-in-production.pem
+
+$ # Convert the private key to PKCS#8 format
+$ openssl pkcs8 -topk8 -nocrypt -in ec-private-key-raw_never-use-in-production.pem -out ec-private-key_never-use-in-production.pem
+
+$ # Generate the public key from the private key
+$ openssl ec -in ec-private-key_never-use-in-production.pem -pubout -out ec-public-key_never-use-in-production.pem
+```
+
+```
 
 * [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
-https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.1
-   4.2.1
-   response_type
-         REQUIRED.  Value MUST be set to "token".
-
-https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.2
-
+** [4.4 Client Credentials Grant - RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4)
+** [4.4.2 Access Token Request - RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.2)
+** [4.4.3 Access Token Response - RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.3)
 
 * [RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662)
 
