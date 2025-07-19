@@ -185,6 +185,13 @@ public class AuthorizationServerConfig {
             
             // Customize JWT payload (claims)
             context.getClaims().claim("ver", "1");  // Add "ver": "1" to the payload
+            
+            // Add client information to JWT payload
+            RegisteredClient registeredClient = context.getRegisteredClient();
+            context.getClaims()
+                .claim("client_id", registeredClient.getClientId())
+                .claim("client_name", registeredClient.getClientName() != null ? 
+                    registeredClient.getClientName() : registeredClient.getClientId());
         };
     }
     
