@@ -95,13 +95,13 @@ $ resource_dir="./src/main/resources/keys"
 $ mkdir -p "${resource_dir}"
 
 $ # Generate a raw EC private key
-$ openssl ecparam -genkey -name prime256v1 -noout -out ec-private-key-raw_never-use-in-production.pem
+$ openssl ecparam -genkey -name prime256v1 -noout -out ${resource_dir}/ec-private-key-raw_never-use-in-production.pem
 
 $ # Convert the private key to PKCS#8 format
-$ openssl pkcs8 -topk8 -nocrypt -in ec-private-key-raw_never-use-in-production.pem -out ec-private-key_never-use-in-production.pem
+$ openssl pkcs8 -topk8 -nocrypt -in ${resource_dir}/ec-private-key-raw_never-use-in-production.pem -out ${resource_dir}/ec-private-key_never-use-in-production.pem
 
 $ # Generate the public key from the private key
-$ openssl ec -in ec-private-key_never-use-in-production.pem -pubout -out ec-public-key_never-use-in-production.pem
+$ openssl ec -in ${resource_dir}/ec-private-key_never-use-in-production.pem -pubout -out ${resource_dir}/ec-public-key_never-use-in-production.pem
 ```
 
 ```
