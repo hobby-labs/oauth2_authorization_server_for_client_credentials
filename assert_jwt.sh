@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+PATH_PUBLIC_KEY="${PATH_PUBLIC_KEY:-./src/main/resources/keys/ec-public-key_never-use-in-production.pem}"
+
 # Color of font red
 FONT_COLOR_GREEN='\033[0;32m'
 # Color of font red
@@ -7,8 +9,12 @@ FONT_COLOR_RED='\033[0;31m'
 # Color of font end
 FONT_COLOR_END='\033[0m'
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 main() {
     local jwt="$1"
+
+    cd "${SCRIPT_DIR}"
 
     if [ -z "${jwt}" ]; then
         echo "Usage: $0 <jwt>"
@@ -46,7 +52,7 @@ do_assert_jwt() {
     echo
 
     echo "# Result Signature Verification ############################################"
-    assert_signature "${jwt_header_b64}" "${jwt_payload_b64}" "${jwt_signature_b64}" "./src/main/resources/keys/ec-public-key_never-use-in-production.pem"
+    assert_signature "${jwt_header_b64}" "${jwt_payload_b64}" "${jwt_signature_b64}" "${PATH_PUBLIC_KEY}"
     ret=$?
     if [ $ret -eq 0 ]; then
         echo -e "[${FONT_COLOR_GREEN}OK${FONT_COLOR_END}] Signature verification succeeded."

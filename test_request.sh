@@ -1,18 +1,16 @@
 #!/usr/bin/env bash
 
-# Color of font red
-FONT_COLOR_GREEN='\033[0;32m'
-# Color of font red
-FONT_COLOR_RED='\033[0;31m'
-# Color of font end
-FONT_COLOR_END='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 main() {
     local response_body
+
+    cd "${SCRIPT_DIR}"
+
     response_body="$(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token 2> /dev/null)"
 
     if [ "${response_body}" == "" ]; then
-        echo "Error: No response received from the server http://localhost:9000/oauth2/token."
+        echo "Error: No response received from the server \"http://localhost:9000/oauth2/token\"."
         return 1
     fi
     assert_response "${response_body}" || return 1
