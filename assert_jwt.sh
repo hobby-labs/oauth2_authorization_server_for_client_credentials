@@ -10,11 +10,14 @@ FONT_COLOR_RED='\033[0;31m'
 FONT_COLOR_END='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMP_DIR=
 
 main() {
     local jwt="$1"
 
     cd "${SCRIPT_DIR}"
+
+    TEMP_DIR="$(mktemp -d)"
 
     if [ -z "${jwt}" ]; then
         echo "Usage: $0 <jwt>"
@@ -57,7 +60,7 @@ do_assert_jwt() {
     if [ $ret -eq 0 ]; then
         echo -e "[${FONT_COLOR_GREEN}OK${FONT_COLOR_END}] Signature verification succeeded."
     else
-        echo -e "[${FONT_COLOR_RED}NG${FONT_COLOR_END}] Signature verification failed."
+        echo -e "[${FONT_COLOR_RED}NG${FONT_COLOR_END}] Signature verification failed. Temporary resources to verify signatures are in the directory \"${TEMP_DIR}\"."
         return 1
     fi
 
@@ -70,10 +73,7 @@ assert_signature() {
     local jwt_payload_b64="$2"
     local jwt_signature="$3"
     local path_public_key="$4"
-    local temp_dir ret
-
-    temp_dir="$(mktemp -d)"
-    echo "Temporary directory created: ${temp_dir}"
+    local ret
 
     local file_signing_input="${temp_dir}/signing_input.txt"
     local file_signature_p1363="${temp_dir}/signature_p1363.bin"
