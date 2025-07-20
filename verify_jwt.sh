@@ -41,8 +41,7 @@ SIGNING_INPUT="${HEADER}.${PAYLOAD}"
 echo "2. Signing input prepared (${#SIGNING_INPUT} characters)"
 
 # Step 3: Create temporary files
-TEMP_DIR=$(mktemp -d)
-echo -n "$SIGNING_INPUT" > "$TEMP_DIR/signing_input"
+echo -n "$SIGNING_INPUT" > "./signing_input"
 
 # Step 4: Decode URL-safe base64 signature
 echo "3. Decoding signature..."
@@ -57,15 +56,14 @@ case $MOD in
     3) STANDARD_B64="${STANDARD_B64}=" ;;
 esac
 
-echo "$STANDARD_B64" | base64 -d > "$TEMP_DIR/signature.bin" 2>/dev/null
+echo "$STANDARD_B64" | base64 -d > "./signature.bin" 2>/dev/null
 
 if [ $? -ne 0 ]; then
     echo "❌ Error: Failed to decode signature"
-    rm -rf "$TEMP_DIR"
     exit 1
 fi
 
-SIG_SIZE=$(wc -c < "$TEMP_DIR/signature.bin")
+SIG_SIZE=$(wc -c < "./signature.bin")
 echo "   Signature decoded successfully ($SIG_SIZE bytes)"
 
 # Step 5: Show public key info
@@ -77,7 +75,7 @@ echo
 # Step 6: Verify signature
 echo "5. Verifying signature with OpenSSL..."
 
-if openssl dgst -sha256 -verify "$PUBLIC_KEY" -signature "$TEMP_DIR/signature.bin" "$TEMP_DIR/signing_input" >/dev/null 2>&1; then
+if openssl dgst -sha256 -verify "$PUBLIC_KEY" -signature "./signature.bin" "./signing_input" >/dev/null 2>&1; then
     echo "✅ SUCCESS: JWT signature is VALID!"
     echo "✅ The token was signed by the corresponding private key"
     echo "✅ The token integrity is verified - no tampering detected"
@@ -90,9 +88,6 @@ else
     echo "   - Wrong public key being used"
     RESULT=1
 fi
-
-# Cleanup
-rm -rf "$TEMP_DIR"
 
 echo
 echo "=== Verification Complete ==="
