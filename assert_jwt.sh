@@ -73,6 +73,7 @@ assert_signature() {
     local temp_dir ret
 
     temp_dir="$(mktemp -d)"
+    echo "Temporary directory created: ${temp_dir}"
 
     local file_signing_input="${temp_dir}/signing_input.txt"
     local file_signature_p1363="${temp_dir}/signature_p1363.bin"
