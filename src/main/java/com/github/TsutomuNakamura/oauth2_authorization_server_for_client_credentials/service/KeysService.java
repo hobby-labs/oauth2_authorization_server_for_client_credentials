@@ -90,4 +90,87 @@ public class KeysService {
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         return (String) config.get("primary-key");
     }
+    
+    /**
+     * Check if key rotation is enabled
+     */
+    @SuppressWarnings("unchecked")
+    public boolean isKeyRotationEnabled() {
+        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
+        Boolean keyRotation = (Boolean) config.get("key-rotation");
+        return keyRotation != null ? keyRotation : false;
+    }
+    
+    /**
+     * Get all available key names
+     */
+    @SuppressWarnings("unchecked")
+    public java.util.Set<String> getAllKeyNames() {
+        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
+        return keys.keySet();
+    }
+    
+    /**
+     * Get key pair for a specific key name
+     */
+    @SuppressWarnings("unchecked")
+    public KeyPair getKeyPair(String keyName) throws Exception {
+        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
+        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+        
+        if (keyConfig == null) {
+            throw new IllegalArgumentException("Key not found: " + keyName);
+        }
+        
+        String privateKeyPem = (String) keyConfig.get("private");
+        String publicKeyPem = (String) keyConfig.get("public");
+        
+        return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
+    }
+    
+    /**
+     * Get key ID for a specific key name
+     */
+    @SuppressWarnings("unchecked")
+    public String getKeyId(String keyName) {
+        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
+        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+        
+        if (keyConfig == null) {
+            return null;
+        }
+        
+        String keyId = (String) keyConfig.get("keyId");
+        return keyId != null ? keyId : keyName + "-default";
+    }
+    
+    /**
+     * Get algorithm for a specific key name
+     */
+    @SuppressWarnings("unchecked")
+    public String getKeyAlgorithm(String keyName) {
+        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
+        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+        
+        if (keyConfig == null) {
+            return null;
+        }
+        
+        return (String) keyConfig.get("algorithm");
+    }
+    
+    /**
+     * Get curve for a specific key name
+     */
+    @SuppressWarnings("unchecked")
+    public String getKeyCurve(String keyName) {
+        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
+        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+        
+        if (keyConfig == null) {
+            return null;
+        }
+        
+        return (String) keyConfig.get("curve");
+    }
 }

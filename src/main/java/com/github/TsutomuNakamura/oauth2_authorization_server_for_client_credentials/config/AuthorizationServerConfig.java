@@ -89,36 +89,85 @@ public class AuthorizationServerConfig {
         try {
             System.out.println("Loading EC keys from YAML configuration...");
             
-            // Load EC keys from YAML configuration via KeysService
-            KeyPair ecKeyPair = keysService.getPrimaryKeyPair();
+            // Check if key rotation is enabled
+            boolean keyRotationEnabled = keysService.isKeyRotationEnabled();
+            System.out.println("Key rotation enabled: " + keyRotationEnabled);
             
-            System.out.println("EC key pair loaded successfully from YAML");
+            java.util.List<com.nimbusds.jose.jwk.JWK> jwkList = new java.util.ArrayList<>();
             
-            java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
-            java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+            if (keyRotationEnabled) {
+                // Load all keys when rotation is enabled
+                java.util.Set<String> allKeyNames = keysService.getAllKeyNames();
+                System.out.println("Loading multiple keys for rotation: " + allKeyNames);
+                
+                for (String keyName : allKeyNames) {
+                    try {
+                        KeyPair keyPair = keysService.getKeyPair(keyName);
+                        String keyId = keysService.getKeyId(keyName);
+                        
+                        java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) keyPair.getPublic();
+                        java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) keyPair.getPrivate();
+                        
+                        // For non-primary keys, only include public key operations
+                        boolean isPrimary = keyName.equals(keysService.getPrimaryKeyName());
+                        java.util.Set<KeyOperation> keyOps = isPrimary ? 
+                            java.util.Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
+                            java.util.Set.of(KeyOperation.VERIFY);
+                            
+                        ECKey.Builder ecKeyBuilder = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                                .keyID(keyId)
+                                .algorithm(JWSAlgorithm.ES256)
+                                .keyUse(KeyUse.SIGNATURE)
+                                .keyOperations(keyOps);
+                        
+                        // Only add private key to primary key for signing
+                        if (isPrimary) {
+                            ecKeyBuilder.privateKey(ecPrivateKey);
+                        }
+                        
+                        ECKey ecKey = ecKeyBuilder.build();
+                        jwkList.add(ecKey);
+                        
+                        System.out.println("Loaded key: " + keyName + " (ID: " + keyId + ", Primary: " + isPrimary + ")");
+                        
+                    } catch (Exception e) {
+                        System.err.println("Failed to load key: " + keyName + " - " + e.getMessage());
+                        // Continue loading other keys
+                    }
+                }
+                
+            } else {
+                // Load only primary key when rotation is disabled
+                KeyPair ecKeyPair = keysService.getPrimaryKeyPair();
+                String keyId = keysService.getPrimaryKeyId();
+                
+                java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
+                java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+                
+                ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                        .privateKey(ecPrivateKey)
+                        .keyID(keyId)
+                        .algorithm(JWSAlgorithm.ES256)
+                        .keyUse(KeyUse.SIGNATURE)
+                        .keyOperations(java.util.Set.of(
+                            KeyOperation.SIGN,
+                            KeyOperation.VERIFY
+                        ))
+                        .build();
+                        
+                jwkList.add(ecKey);
+                System.out.println("Loaded primary key only: " + keysService.getPrimaryKeyName());
+            }
             
-            // Use keyId from YAML configuration
-            String keyId = keysService.getPrimaryKeyId();
+            if (jwkList.isEmpty()) {
+                throw new RuntimeException("No valid keys could be loaded");
+            }
             
-            ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
-                    .privateKey(ecPrivateKey)
-                    .keyID(keyId)
-                    .algorithm(JWSAlgorithm.ES256)
-                    .keyUse(KeyUse.SIGNATURE)
-                    .keyOperations(java.util.Set.of(
-                        KeyOperation.SIGN,
-                        KeyOperation.VERIFY
-                    ))
-                    .build();
+            JWKSet jwkSet = new JWKSet(jwkList);
             
-            JWKSet jwkSet = new JWKSet(ecKey);
-            
-            System.out.println("JWK Source initialized with EC key loaded from YAML");
-            System.out.println("Key ID: " + ecKey.getKeyID());
-            System.out.println("Algorithm: " + ecKey.getAlgorithm());
-            System.out.println("Key Use: " + ecKey.getKeyUse());
-            System.out.println("Curve: " + keysService.getPrimaryKeyCurve());
-            System.out.println("Primary key name: " + keysService.getPrimaryKeyName());
+            System.out.println("JWK Source initialized with " + jwkList.size() + " key(s)");
+            System.out.println("Primary key: " + keysService.getPrimaryKeyName());
+            System.out.println("Algorithm: ES256, Curve: P-256");
             
             return new ImmutableJWKSet<>(jwkSet);
             

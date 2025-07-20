@@ -16,21 +16,24 @@ keys:
     algorithm: "ES256"
     curve: "P-256"
     
-  # You can add more key pairs here for key rotation
-  # ec-backup:
-  #   private: |
-  #     -----BEGIN PRIVATE KEY-----
-  #     ...
-  #     -----END PRIVATE KEY-----
-  #   public: |
-  #     -----BEGIN PUBLIC KEY-----
-  #     ...
-  #     -----END PUBLIC KEY-----
-  #   keyId: "ec-backup-key"
-  #   algorithm: "ES256"
-  #   curve: "P-256"
+  # Backup key for rotation
+  ec-backup:
+    private: |
+      -----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgxRdOxWpv+dv92jku
+      ss+zlqo9DCk/gOk1zemTBpVqEa6hRANCAAR+HX8TWHLXnuDGBpK8cWgUImLdKC5C
+      vw4t4zQ5ATKHtnupXTe1ntbEeXJKSCH3CcloXUW6d2ZbEuP06bDfHMLp
+      -----END PRIVATE KEY-----
+    public: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfh1/E1hy157gxgaSvHFoFCJi3Sgu
+      Qr8OLeM0OQEyh7Z7qV03tZ7WxHlySkgh9wnJaF1FundmWxLj9Omw3xzC6Q==
+      -----END PUBLIC KEY-----
+    keyId: "ec-backup-2025"
+    algorithm: "ES256"
+    curve: "P-256"
 
 # Configuration for key usage
 config:
   primary-key: "ec"  # Which key to use as primary
-  key-rotation: false  # Enable/disable key rotation
+  key-rotation: true  # Enable/disable key rotation
