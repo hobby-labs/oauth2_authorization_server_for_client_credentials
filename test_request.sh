@@ -22,9 +22,21 @@ main() {
 
 assert_result() {
     local response_body="$1"
-    local jwt jwt_header_b64 jwt_payload_b64 jwt_header jwt_payload jwt_signature_b64_urlsafe jwt_signature_b64 ret
+    local jwt
+
+    echo "# Result of Raw Response ###################################################"
+    echo "${response_body}" | jq -r '.'
 
     jwt=$(jq -r '.access_token' <<< "${response_body}")
+
+    assert_jwt_result "${jwt}" || return 1
+
+    return 0
+}
+
+assert_jwt_result() {
+    local jwt="$1"
+    local jwt_header_b64 jwt_payload_b64 jwt_header jwt_payload jwt_signature_b64_urlsafe jwt_signature_b64 remainder ret
 
     IFS='.' read -r jwt_header_b64 jwt_payload_b64 jwt_signature_b64_urlsafe <<< "$jwt"
     jwt_header=$(echo -n "${jwt_header_b64}" | base64 --decode)
@@ -36,9 +48,6 @@ assert_result() {
     elif [ $remainder -eq 3 ]; then
         jwt_signature_b64="${jwt_signature_b64}="
     fi
-
-    echo "# Result of Raw Response ###################################################"
-    echo "${response_body}" | jq -r '.'
 
     echo "# Result of Header in JWT (decoded from base64) ############################"
     echo "${jwt_header}" | jq -r '.'
@@ -57,7 +66,10 @@ assert_result() {
         echo -e "[${FONT_COLOR_GREEN}OK${FONT_COLOR_END}] Signature verification succeeded."
     else
         echo -e "[${FONT_COLOR_RED}NG${FONT_COLOR_END}] Signature verification failed."
+        return 1
     fi
+
+    return 0
 }
 
 verify_signature() {
