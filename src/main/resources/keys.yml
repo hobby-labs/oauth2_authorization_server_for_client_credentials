@@ -1,4 +1,10 @@
 keys:
+  # ✅ Primary Key (ec-key-from-yaml):
+  # Has both "sign" and "verify" operations
+  # This is the active signing key
+  # ✅ Backup Key (ec-backup-2025):
+  # Has only "verify" operation
+  # Available for verifying old tokens but not for signing new ones
   ec:
     # EC P-256 key pair for JWT signing (ES256)
     private: |

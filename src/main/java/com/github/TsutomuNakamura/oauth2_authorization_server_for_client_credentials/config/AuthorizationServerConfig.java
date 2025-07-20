@@ -1,12 +1,7 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.config;
 
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
 import java.util.UUID;
-
-import javax.crypto.spec.SecretKeySpec;
 
 import java.time.Duration;
 
@@ -31,7 +26,6 @@ import org.springframework.security.oauth2.server.authorization.token.OAuth2Toke
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.ECKey;
 import com.nimbusds.jose.jwk.Curve;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -176,6 +170,50 @@ public class AuthorizationServerConfig {
             e.printStackTrace();
             throw new RuntimeException("Could not load keys from YAML configuration", e);
         }
+    }
+
+    @Bean
+    public JwtEncoder jwtEncoder(JWKSource<SecurityContext> jwkSource) {
+        // Create a custom JWT encoder that selects the primary key for signing
+        NimbusJwtEncoder encoder = new NimbusJwtEncoder(jwkSource);
+        
+        // Set a custom JWK selector that picks the primary key for signing
+        encoder.setJwkSelector(candidateKeys -> {
+            try {
+                // Find the primary key (the one with private key for signing)
+                String primaryKeyId = keysService.getPrimaryKeyId();
+                for (com.nimbusds.jose.jwk.JWK jwk : candidateKeys) {
+                    if (primaryKeyId.equals(jwk.getKeyID()) && jwk instanceof ECKey) {
+                        ECKey ecKey = (ECKey) jwk;
+                        // Only return keys that have private key (can sign)
+                        if (ecKey.isPrivate()) {
+                            System.out.println("Selected primary key for signing: " + jwk.getKeyID());
+                            return jwk;
+                        }
+                    }
+                }
+                
+                // Fallback: return the first key with private key
+                for (com.nimbusds.jose.jwk.JWK jwk : candidateKeys) {
+                    if (jwk instanceof ECKey) {
+                        ECKey ecKey = (ECKey) jwk;
+                        if (ecKey.isPrivate()) {
+                            System.out.println("Selected fallback key for signing: " + jwk.getKeyID());
+                            return jwk;
+                        }
+                    }
+                }
+                
+                System.err.println("No suitable signing key found!");
+                throw new RuntimeException("No suitable signing key found");
+                
+            } catch (Exception e) {
+                System.err.println("Error selecting JWK for signing: " + e.getMessage());
+                throw new RuntimeException("Error selecting JWK for signing", e);
+            }
+        });
+        
+        return encoder;
     }
 
     @Bean
