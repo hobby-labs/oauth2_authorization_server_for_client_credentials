@@ -121,20 +121,6 @@ public class AuthorizationServerConfig {
         }
     }
 
-    private static KeyPair generateEcKey() {
-        KeyPair keyPair;
-        try {
-            KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC");
-            java.security.spec.ECGenParameterSpec ecSpec = new java.security.spec.ECGenParameterSpec("secp256r1"); // prime256v1
-            keyPairGenerator.initialize(ecSpec);
-            keyPair = keyPairGenerator.generateKeyPair();
-        }
-        catch (Exception ex) {
-            throw new IllegalStateException(ex);
-        }
-        return keyPair;
-    }
-
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         System.out.println("Authorization Server Settings initialized with issuer: http://localhost:9000");
@@ -181,18 +167,4 @@ public class AuthorizationServerConfig {
                     registeredClient.getClientName() : registeredClient.getClientId());
         };
     }
-    
-    // Helper method to generate self-signed certificate for testing
-    @SuppressWarnings("unused")
-    private java.util.List<String> generateSelfSignedCertificate() throws Exception {
-        // Generate EC key pair
-        KeyPair keyPair = generateEcKey();
-        
-        // This is a simplified example - in production, use a proper certificate library
-        // For now, return a placeholder certificate
-        String exampleCert = "MIIBkTCB+wIJAMExample..."; // Placeholder
-        
-        return java.util.Arrays.asList(exampleCert);
-    }
-
 }
