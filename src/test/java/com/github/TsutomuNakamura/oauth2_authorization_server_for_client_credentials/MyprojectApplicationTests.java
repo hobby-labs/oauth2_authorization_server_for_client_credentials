@@ -220,7 +220,63 @@ class MyprojectApplicationTests {
 		System.out.println("   DER sequence length: " + sequenceLength + " bytes");
 	}
 
-	// Helper methods
+	@Test
+	@DisplayName("Verify signature.bin file (P1363 format) against signing_input")
+	void testSignatureBinFileVerification() throws Exception {
+		// Load public key
+		ClassPathResource keyResource = new ClassPathResource("keys/ec-public-key_never-use-in-production.pem");
+		String keyPem = Files.readString(keyResource.getFile().toPath())
+				.replace("-----BEGIN PUBLIC KEY-----", "")
+				.replace("-----END PUBLIC KEY-----", "")
+				.replaceAll("\\s", "");
+		
+		byte[] keyBytes = Base64.getDecoder().decode(keyPem);
+		X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+		KeyFactory keyFactory = KeyFactory.getInstance("EC");
+		PublicKey publicKey = keyFactory.generatePublic(keySpec);
+		
+		// Read signature.bin file (should be in P1363 format)
+		java.io.File signatureFile = new java.io.File("signature.bin");
+		assertTrue(signatureFile.exists(), "signature.bin file should exist");
+		
+		byte[] p1363Signature = Files.readAllBytes(signatureFile.toPath());
+		assertEquals(64, p1363Signature.length, "P1363 signature should be 64 bytes for P-256");
+		
+		// Read signing_input file
+		java.io.File signingInputFile = new java.io.File("signing_input");
+		assertTrue(signingInputFile.exists(), "signing_input file should exist");
+		
+		byte[] signingInput = Files.readAllBytes(signingInputFile.toPath());
+		assertNotNull(signingInput, "Signing input should not be null");
+		assertTrue(signingInput.length > 0, "Signing input should not be empty");        // Convert P1363 to DER format
+        byte[] derSignature = convertP1363ToDER(p1363Signature);
+		assertNotNull(derSignature, "DER signature should not be null");
+		assertTrue(derSignature.length > 64, "DER signature should be longer than P1363");
+		
+		// Verify signature using converted DER format
+		Signature signature = Signature.getInstance("SHA256withECDSA");
+		signature.initVerify(publicKey);
+		signature.update(signingInput);
+		
+		boolean isValid = signature.verify(derSignature);
+		assertTrue(isValid, "Signature from signature.bin should be valid when converted to DER");
+		
+		System.out.println("✅ signature.bin verification passed");
+		System.out.println("P1363 signature length: " + p1363Signature.length + " bytes");
+		System.out.println("DER signature length: " + derSignature.length + " bytes");
+		System.out.println("Signing input length: " + signingInput.length + " bytes");
+		
+		// Extract and display r and s components
+		byte[] r = new byte[32];
+		byte[] s = new byte[32];
+		System.arraycopy(p1363Signature, 0, r, 0, 32);
+		System.arraycopy(p1363Signature, 32, s, 0, 32);
+		
+		System.out.println("r component (hex): " + bytesToHex(r));
+		System.out.println("s component (hex): " + bytesToHex(s));
+	}
+
+    // Helper methods
 
 	private PublicKey loadPublicKeyFromFile(String keyPath) throws Exception {
 		ClassPathResource resource = new ClassPathResource(keyPath);
@@ -336,5 +392,16 @@ class MyprojectApplicationTests {
 			System.arraycopy(trimmed, 0, result, 2, trimmed.length);
 			return result;
 		}
+	}
+
+	/**
+	 * Convert byte array to hexadecimal string representation
+	 */
+	private String bytesToHex(byte[] bytes) {
+		StringBuilder result = new StringBuilder();
+		for (byte b : bytes) {
+			result.append(String.format("%02x", b));
+		}
+		return result.toString();
 	}
 }
