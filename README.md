@@ -88,6 +88,12 @@ Decoded JWT.
 $ ./test_request.sh
 ```
 
+## Getting public keys for JWT verification
+
+```
+$ curl http://localhost:9000/oauth2/jwks | jq .
+```
+
 ## Generate public key pair with OpenSSL which algorithm is ES256
 
 ```
