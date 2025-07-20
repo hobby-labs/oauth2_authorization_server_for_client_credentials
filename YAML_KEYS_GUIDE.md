@@ -4,12 +4,12 @@ This guide explains how to use YAML configuration for managing cryptographic key
 
 ## Overview
 
-The application can now load EC (Elliptic Curve) keys from a YAML configuration file (`keys.yml`) located in `src/main/resources/`. This approach provides:
+The application loads EC (Elliptic Curve) keys exclusively from a YAML configuration file (`keys.yml`) located in `src/main/resources/`. This approach provides:
 
 - **Centralized key management**: All keys in one file
 - **Key rotation support**: Multiple keys with primary key selection
 - **Environment-specific configurations**: Different keys for dev/test/prod
-- **Fallback mechanism**: Automatically falls back to PEM files if YAML loading fails
+- **Clean architecture**: YAML-only approach without fallback complexity
 
 ## Configuration Structure
 
@@ -233,13 +233,7 @@ Run the provided test script:
    - Check application logs for specific error messages
    - Verify `keys.yml` is in the correct location
    - Ensure SnakeYAML dependency is included
-
-### Fallback Behavior
-
-If YAML loading fails, the application will:
-1. Log the error
-2. Attempt to load keys from PEM files in `src/main/resources/keys/`
-3. Use key ID `"ec-key-from-file-fallback"`
+   - Application will fail to start if YAML keys cannot be loaded
 
 ## Security Considerations
 
@@ -255,4 +249,4 @@ If YAML loading fails, the application will:
 - **Flexibility**: Easy to add/remove keys without code changes
 - **Key Rotation**: Built-in support for multiple keys
 - **Environment Agnostic**: Same configuration format across environments
-- **Fallback Safety**: Automatic fallback to PEM files if needed
+- **Clean Architecture**: No fallback complexity, YAML-only approach
