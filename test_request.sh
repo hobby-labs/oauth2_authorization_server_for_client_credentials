@@ -7,7 +7,6 @@ FONT_COLOR_RED='\033[0;31m'
 # Color of font end
 FONT_COLOR_END='\033[0m'
 
-
 main() {
     local response_body
     response_body="$(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token 2> /dev/null)"
@@ -16,10 +15,7 @@ main() {
         echo "Error: No response received from the server http://localhost:9000/oauth2/token."
         return 1
     fi
-
-
-    assert_result "${response_body}"
-
+    assert_result "${response_body}" || return 1
 
     return 0
 }
