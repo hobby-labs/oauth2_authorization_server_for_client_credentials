@@ -41,9 +41,16 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
 
 @Configuration
 public class AuthorizationServerConfig {
+    
+    private final KeysService keysService;
+    
+    public AuthorizationServerConfig(KeysService keysService) {
+        this.keysService = keysService;
+    }
     
     @Bean
     @Order(1)
@@ -81,22 +88,22 @@ public class AuthorizationServerConfig {
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         try {
-            System.out.println("Loading EC keys from classpath...");
+            System.out.println("Loading EC keys from YAML configuration...");
             
-            // Option 3: Load EC keys from files in classpath
-            KeyPair ecKeyPair = KeyLoader.loadECFromClasspath(
-                "keys/ec-private-key_never-use-in-production.pem", 
-                "keys/ec-public-key_never-use-in-production.pem"
-            );
+            // Load EC keys from YAML configuration via KeysService
+            KeyPair ecKeyPair = keysService.getPrimaryKeyPair();
             
-            System.out.println("EC key pair loaded successfully");
+            System.out.println("EC key pair loaded successfully from YAML");
             
             java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
             java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
             
+            // Use keyId from YAML configuration
+            String keyId = keysService.getPrimaryKeyId();
+            
             ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
                     .privateKey(ecPrivateKey)
-                    .keyID("ec-key-from-file")
+                    .keyID(keyId)
                     .algorithm(JWSAlgorithm.ES256)
                     .keyUse(KeyUse.SIGNATURE)
                     .keyOperations(java.util.Set.of(
@@ -107,17 +114,50 @@ public class AuthorizationServerConfig {
             
             JWKSet jwkSet = new JWKSet(ecKey);
             
-            System.out.println("JWK Source initialized with EC key loaded from files");
+            System.out.println("JWK Source initialized with EC key loaded from YAML");
             System.out.println("Key ID: " + ecKey.getKeyID());
             System.out.println("Algorithm: " + ecKey.getAlgorithm());
             System.out.println("Key Use: " + ecKey.getKeyUse());
+            System.out.println("Curve: " + keysService.getPrimaryKeyCurve());
+            System.out.println("Primary key name: " + keysService.getPrimaryKeyName());
             
             return new ImmutableJWKSet<>(jwkSet);
             
         } catch (Exception e) {
-            System.err.println("Failed to load EC key pair from files: " + e.getMessage());
+            System.err.println("Failed to load EC key pair from YAML: " + e.getMessage());
             e.printStackTrace();
-            throw new RuntimeException("Could not load keys from files", e);
+            
+            // Fallback to file-based loading if YAML fails
+            System.out.println("Falling back to file-based key loading...");
+            try {
+                KeyPair ecKeyPair = KeyLoader.loadECFromClasspath(
+                    "keys/ec-private-key_never-use-in-production.pem", 
+                    "keys/ec-public-key_never-use-in-production.pem"
+                );
+                
+                java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
+                java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
+                
+                ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                        .privateKey(ecPrivateKey)
+                        .keyID("ec-key-from-file-fallback")
+                        .algorithm(JWSAlgorithm.ES256)
+                        .keyUse(KeyUse.SIGNATURE)
+                        .keyOperations(java.util.Set.of(
+                            KeyOperation.SIGN,
+                            KeyOperation.VERIFY
+                        ))
+                        .build();
+                
+                JWKSet jwkSet = new JWKSet(ecKey);
+                System.out.println("Fallback: EC keys loaded from files successfully");
+                
+                return new ImmutableJWKSet<>(jwkSet);
+                
+            } catch (Exception fallbackException) {
+                System.err.println("Fallback also failed: " + fallbackException.getMessage());
+                throw new RuntimeException("Could not load keys from YAML or files", fallbackException);
+            }
         }
     }
 

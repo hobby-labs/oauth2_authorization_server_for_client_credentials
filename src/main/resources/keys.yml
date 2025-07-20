@@ -1,0 +1,36 @@
+keys:
+  ec:
+    # EC P-256 key pair for JWT signing (ES256)
+    private: |
+      -----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg0B5vUIKpkExxCzK7
+      T04vaa8CcA2EtzNtpx+MTiYAvAKhRANCAATmBYWiTLeavnUPScDRLpYS5ayut0dB
+      O3R8Fg2GgvnfeAqsm/WMSrw6cN6hNzSAWqWBEXBLzZxX7lGpYY9Qn2GO
+      -----END PRIVATE KEY-----
+    public: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5gWFoky3mr51D0nA0S6WEuWsrrdH
+      QTt0fBYNhoL533gKrJv1jEq8OnDeoTc0gFqlgRFwS82cV+5RqWGPUJ9hjg==
+      -----END PUBLIC KEY-----
+    keyId: "ec-key-from-yaml"
+    algorithm: "ES256"
+    curve: "P-256"
+    
+  # You can add more key pairs here for key rotation
+  # ec-backup:
+  #   private: |
+  #     -----BEGIN PRIVATE KEY-----
+  #     ...
+  #     -----END PRIVATE KEY-----
+  #   public: |
+  #     -----BEGIN PUBLIC KEY-----
+  #     ...
+  #     -----END PUBLIC KEY-----
+  #   keyId: "ec-backup-key"
+  #   algorithm: "ES256"
+  #   curve: "P-256"
+
+# Configuration for key usage
+config:
+  primary-key: "ec"  # Which key to use as primary
+  key-rotation: false  # Enable/disable key rotation
