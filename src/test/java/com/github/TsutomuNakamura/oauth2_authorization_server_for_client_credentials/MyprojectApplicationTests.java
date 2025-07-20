@@ -1,19 +1,23 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.core.io.ClassPathResource;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
-import java.nio.file.Files;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.io.ClassPathResource;
 
 @SpringBootTest
 class MyprojectApplicationTests {
@@ -46,6 +50,28 @@ class MyprojectApplicationTests {
      * DER sequence length: 68 bytes
      * Tests run: 7, Failures: 0, Errors: 0, Skipped: 0
      * BUILD SUCCESS
+	 * 
+	 * Client credentials flow
+     * ES256 JWT signing with EC P-256 keys
+     * Custom claims and headers
+     * Proper key loading from PEM files
+     * Comprehensive test coverage
+	 * 
+	 * ---
+	 * 
+	 * For JWT creation, the signature should be in IEEE P1363 format, NOT ASN.1 DER format.
+	 * 
+	 * # JWT Standard (RFC 7515) ###############################################
+     * The JWT specification explicitly requires IEEE P1363 format for ECDSA signatures:
+     * P-256 (ES256): 64 bytes (32 bytes r + 32 bytes s)
+     * P-384 (ES384): 96 bytes (48 bytes r + 48 bytes s)
+     * P-521 (ES512): 132 bytes (66 bytes r + 66 bytes s)
+	 * 
+	 * # The Conversion Issue in Java ##########################################
+     * * The problem is that Java's crypto APIs use ASN.1 DER format by default, but JWT requires IEEE P1363 format:
+     * * Java Signature.sign() → produces ASN.1 DER format
+     * * Java Signature.verify() → expects ASN.1 DER format
+     * * JWT specification → requires IEEE P1363 format
 	*/
 
 	private PublicKey publicKey;
