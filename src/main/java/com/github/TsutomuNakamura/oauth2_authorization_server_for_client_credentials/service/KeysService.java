@@ -1,6 +1,9 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 
@@ -16,29 +19,53 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 @Service
 public class KeysService {
     
+    @Value("${keys.file.path:keys.yml}")
+    private String keysFilePath;
+    
     private Map<String, Object> yamlData;
+    private boolean configurationLoaded = false;
     
     public KeysService() {
-        loadYamlConfiguration();
+        // Configuration will be loaded lazily when first accessed
+    }
+    
+    private void ensureConfigurationLoaded() {
+        if (!configurationLoaded) {
+            loadYamlConfiguration();
+            configurationLoaded = true;
+        }
+    }
+    
+    private Resource getKeysResource() {
+        // If the path starts with classpath: or is just a filename, use ClassPathResource
+        if (keysFilePath.startsWith("classpath:") || !keysFilePath.contains("/")) {
+            String resourcePath = keysFilePath.startsWith("classpath:") ? 
+                keysFilePath.substring("classpath:".length()) : keysFilePath;
+            return new ClassPathResource(resourcePath);
+        } else {
+            // Otherwise, treat it as a file system path
+            return new FileSystemResource(keysFilePath);
+        }
     }
     
     @SuppressWarnings("unchecked")
     private void loadYamlConfiguration() {
         try {
-            ClassPathResource resource = new ClassPathResource("keys.yml");
+            Resource resource = getKeysResource();
             Yaml yaml = new Yaml();
             try (InputStream inputStream = resource.getInputStream()) {
                 yamlData = yaml.load(inputStream);
             }
-            System.out.println("Successfully loaded keys.yml configuration");
+            System.out.println("Successfully loaded keys configuration from: " + keysFilePath);
         } catch (Exception e) {
-            System.err.println("Failed to load keys.yml: " + e.getMessage());
-            throw new RuntimeException("Could not load keys.yml", e);
+            System.err.println("Failed to load keys from " + keysFilePath + ": " + e.getMessage());
+            throw new RuntimeException("Could not load keys from " + keysFilePath, e);
         }
     }
     
     @SuppressWarnings("unchecked")
     public KeyPair getPrimaryKeyPair() throws Exception {
+        ensureConfigurationLoaded();
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         String primaryKeyName = (String) config.get("primary-key");
         
@@ -53,6 +80,7 @@ public class KeysService {
     
     @SuppressWarnings("unchecked")
     public String getPrimaryKeyId() {
+        ensureConfigurationLoaded();
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         String primaryKeyName = (String) config.get("primary-key");
         
@@ -65,6 +93,7 @@ public class KeysService {
     
     @SuppressWarnings("unchecked")
     public String getPrimaryKeyAlgorithm() {
+        ensureConfigurationLoaded();
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         String primaryKeyName = (String) config.get("primary-key");
         
@@ -76,6 +105,7 @@ public class KeysService {
     
     @SuppressWarnings("unchecked")
     public String getPrimaryKeyCurve() {
+        ensureConfigurationLoaded();
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         String primaryKeyName = (String) config.get("primary-key");
         
@@ -87,6 +117,7 @@ public class KeysService {
     
     @SuppressWarnings("unchecked")
     public String getPrimaryKeyName() {
+        ensureConfigurationLoaded();
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         return (String) config.get("primary-key");
     }
@@ -96,6 +127,7 @@ public class KeysService {
      */
     @SuppressWarnings("unchecked")
     public java.util.Set<String> getAllKeyNames() {
+        ensureConfigurationLoaded();
         Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
         return keys.keySet();
     }
@@ -105,6 +137,7 @@ public class KeysService {
      */
     @SuppressWarnings("unchecked")
     public KeyPair getKeyPair(String keyName) throws Exception {
+        ensureConfigurationLoaded();
         Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
         Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
         
@@ -123,6 +156,7 @@ public class KeysService {
      */
     @SuppressWarnings("unchecked")
     public String getKeyId(String keyName) {
+        ensureConfigurationLoaded();
         Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
         Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
         
@@ -139,6 +173,7 @@ public class KeysService {
      */
     @SuppressWarnings("unchecked")
     public String getKeyAlgorithm(String keyName) {
+        ensureConfigurationLoaded();
         Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
         Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
         
@@ -154,6 +189,7 @@ public class KeysService {
      */
     @SuppressWarnings("unchecked")
     public String getKeyCurve(String keyName) {
+        ensureConfigurationLoaded();
         Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
         Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
         
