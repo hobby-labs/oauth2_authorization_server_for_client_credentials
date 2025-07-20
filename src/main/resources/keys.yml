@@ -42,4 +42,3 @@ keys:
 # Configuration for key usage
 config:
   primary-key: "ec"  # Which key to use as primary
-  key-rotation: true  # Enable/disable key rotation

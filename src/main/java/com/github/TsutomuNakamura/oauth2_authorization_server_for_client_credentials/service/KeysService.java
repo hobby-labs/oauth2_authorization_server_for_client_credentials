@@ -90,17 +90,7 @@ public class KeysService {
         Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
         return (String) config.get("primary-key");
     }
-    
-    /**
-     * Check if key rotation is enabled
-     */
-    @SuppressWarnings("unchecked")
-    public boolean isKeyRotationEnabled() {
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        Boolean keyRotation = (Boolean) config.get("key-rotation");
-        return keyRotation != null ? keyRotation : false;
-    }
-    
+
     /**
      * Get all available key names
      */

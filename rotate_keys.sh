@@ -11,11 +11,10 @@ echo
 show_current_config() {
     echo "Current Configuration:"
     echo "Primary Key: $(grep 'primary-key:' $KEYS_FILE | sed 's/.*primary-key: *"\?\([^"]*\)"\?.*/\1/')"
-    echo "Key Rotation: $(grep 'key-rotation:' $KEYS_FILE | sed 's/.*key-rotation: *\([^ ]*\).*/\1/')"
     echo
     
     echo "Available Keys:"
-    grep -A 1 "^ *[a-zA-Z-]*:" $KEYS_FILE | grep -v "config:" | grep -v "primary-key:" | grep -v "key-rotation:" | grep ":" | sed 's/^ */- /' | sed 's/:.*$//'
+    grep -A 1 "^ *[a-zA-Z-]*:" $KEYS_FILE | grep -v "config:" | grep -v "primary-key:" | grep ":" | sed 's/^ */- /' | sed 's/:.*$//'
     echo
 }
 
@@ -26,12 +25,9 @@ rotate_to_backup() {
     # Update primary key
     sed -i 's/primary-key: *"ec"/primary-key: "ec-backup"/' $KEYS_FILE
     
-    # Ensure key rotation is enabled
-    sed -i 's/key-rotation: *false/key-rotation: true/' $KEYS_FILE
-    
     echo "✅ Key rotation completed!"
     echo "New primary key: ec-backup"
-    echo "Key rotation: enabled"
+    echo "Key rotation: always enabled (all keys available for verification)"
 }
 
 # Function to rotate back to original key
@@ -43,29 +39,7 @@ rotate_to_primary() {
     
     echo "✅ Key rotation completed!"
     echo "New primary key: ec"
-    echo "Key rotation: enabled (keeping both keys available)"
-}
-
-# Function to disable key rotation (primary key only)
-disable_rotation() {
-    echo "Disabling key rotation (primary key only mode)..."
-    
-    # Disable key rotation
-    sed -i 's/key-rotation: *true/key-rotation: false/' $KEYS_FILE
-    
-    echo "✅ Key rotation disabled!"
-    echo "Only primary key will be used for signing and verification"
-}
-
-# Function to enable key rotation
-enable_rotation() {
-    echo "Enabling key rotation (all keys available for verification)..."
-    
-    # Enable key rotation
-    sed -i 's/key-rotation: *false/key-rotation: true/' $KEYS_FILE
-    
-    echo "✅ Key rotation enabled!"
-    echo "All keys will be available for verification, primary key for signing"
+    echo "Key rotation: always enabled (all keys available for verification)"
 }
 
 # Main menu
@@ -75,13 +49,11 @@ while true; do
     echo "Options:"
     echo "1) Rotate to backup key (ec → ec-backup)"
     echo "2) Rotate to primary key (ec-backup → ec)"
-    echo "3) Enable key rotation"
-    echo "4) Disable key rotation"
-    echo "5) Show current config"
-    echo "6) Exit"
+    echo "3) Show current config"
+    echo "4) Exit"
     echo
     
-    read -p "Select option (1-6): " choice
+    read -p "Select option (1-4): " choice
     echo
     
     case $choice in
@@ -90,35 +62,26 @@ while true; do
             echo
             echo "⚠️  Remember to restart the application to apply changes!"
             echo
+            exit 0
             ;;
         2)
             rotate_to_primary
             echo
             echo "⚠️  Remember to restart the application to apply changes!"
             echo
+            exit 0
             ;;
         3)
-            enable_rotation
-            echo
-            echo "⚠️  Remember to restart the application to apply changes!"
-            echo
-            ;;
-        4)
-            disable_rotation
-            echo
-            echo "⚠️  Remember to restart the application to apply changes!"
-            echo
-            ;;
-        5)
             # Just show config again
             ;;
-        6)
+        4)
             echo "Goodbye!"
             exit 0
             ;;
         *)
             echo "Invalid option. Please try again."
             echo
+            exit 0
             ;;
     esac
 done

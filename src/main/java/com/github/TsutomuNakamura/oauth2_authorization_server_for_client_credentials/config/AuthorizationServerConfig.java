@@ -81,76 +81,48 @@ public class AuthorizationServerConfig {
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         try {
-            System.out.println("Loading EC keys from YAML configuration...");
-            
-            // Check if key rotation is enabled
-            boolean keyRotationEnabled = keysService.isKeyRotationEnabled();
-            System.out.println("Key rotation enabled: " + keyRotationEnabled);
+            System.out.println("Loading EC keys from YAML configuration for key rotation...");
             
             java.util.List<com.nimbusds.jose.jwk.JWK> jwkList = new java.util.ArrayList<>();
             
-            if (keyRotationEnabled) {
-                // Load all keys when rotation is enabled
-                java.util.Set<String> allKeyNames = keysService.getAllKeyNames();
-                System.out.println("Loading multiple keys for rotation: " + allKeyNames);
-                
-                for (String keyName : allKeyNames) {
-                    try {
-                        KeyPair keyPair = keysService.getKeyPair(keyName);
-                        String keyId = keysService.getKeyId(keyName);
+            // Load all keys for rotation
+            java.util.Set<String> allKeyNames = keysService.getAllKeyNames();
+            System.out.println("Loading multiple keys for rotation: " + allKeyNames);
+            
+            for (String keyName : allKeyNames) {
+                try {
+                    KeyPair keyPair = keysService.getKeyPair(keyName);
+                    String keyId = keysService.getKeyId(keyName);
+                    
+                    java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) keyPair.getPublic();
+                    java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) keyPair.getPrivate();
+                    
+                    // For non-primary keys, only include public key operations
+                    boolean isPrimary = keyName.equals(keysService.getPrimaryKeyName());
+                    java.util.Set<KeyOperation> keyOps = isPrimary ? 
+                        java.util.Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
+                        java.util.Set.of(KeyOperation.VERIFY);
                         
-                        java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) keyPair.getPublic();
-                        java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) keyPair.getPrivate();
-                        
-                        // For non-primary keys, only include public key operations
-                        boolean isPrimary = keyName.equals(keysService.getPrimaryKeyName());
-                        java.util.Set<KeyOperation> keyOps = isPrimary ? 
-                            java.util.Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
-                            java.util.Set.of(KeyOperation.VERIFY);
-                            
-                        ECKey.Builder ecKeyBuilder = new ECKey.Builder(Curve.P_256, ecPublicKey)
-                                .keyID(keyId)
-                                .algorithm(JWSAlgorithm.ES256)
-                                .keyUse(KeyUse.SIGNATURE)
-                                .keyOperations(keyOps);
-                        
-                        // Only add private key to primary key for signing
-                        if (isPrimary) {
-                            ecKeyBuilder.privateKey(ecPrivateKey);
-                        }
-                        
-                        ECKey ecKey = ecKeyBuilder.build();
-                        jwkList.add(ecKey);
-                        
-                        System.out.println("Loaded key: " + keyName + " (ID: " + keyId + ", Primary: " + isPrimary + ")");
-                        
-                    } catch (Exception e) {
-                        System.err.println("Failed to load key: " + keyName + " - " + e.getMessage());
-                        // Continue loading other keys
+                    ECKey.Builder ecKeyBuilder = new ECKey.Builder(Curve.P_256, ecPublicKey)
+                            .keyID(keyId)
+                            .algorithm(JWSAlgorithm.ES256)
+                            .keyUse(KeyUse.SIGNATURE)
+                            .keyOperations(keyOps);
+                    
+                    // Only add private key to primary key for signing
+                    if (isPrimary) {
+                        ecKeyBuilder.privateKey(ecPrivateKey);
                     }
+                    
+                    ECKey ecKey = ecKeyBuilder.build();
+                    jwkList.add(ecKey);
+                    
+                    System.out.println("Loaded key: " + keyName + " (ID: " + keyId + ", Primary: " + isPrimary + ")");
+                    
+                } catch (Exception e) {
+                    System.err.println("Failed to load key: " + keyName + " - " + e.getMessage());
+                    // Continue loading other keys
                 }
-                
-            } else {
-                // Load only primary key when rotation is disabled
-                KeyPair ecKeyPair = keysService.getPrimaryKeyPair();
-                String keyId = keysService.getPrimaryKeyId();
-                
-                java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) ecKeyPair.getPublic();
-                java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) ecKeyPair.getPrivate();
-                
-                ECKey ecKey = new ECKey.Builder(Curve.P_256, ecPublicKey)
-                        .privateKey(ecPrivateKey)
-                        .keyID(keyId)
-                        .algorithm(JWSAlgorithm.ES256)
-                        .keyUse(KeyUse.SIGNATURE)
-                        .keyOperations(java.util.Set.of(
-                            KeyOperation.SIGN,
-                            KeyOperation.VERIFY
-                        ))
-                        .build();
-                        
-                jwkList.add(ecKey);
-                System.out.println("Loaded primary key only: " + keysService.getPrimaryKeyName());
             }
             
             if (jwkList.isEmpty()) {
