@@ -18,7 +18,13 @@ curl https://start.spring.io/starter.zip \
 ## Start the application
 
 ```
-./mvnw spring-boot:run
+$ ./mvnw spring-boot:run
+```
+
+or
+
+```
+$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--keys.file.path=/path/to/keys.yml"
 ```
 
 ## Testing with curl
