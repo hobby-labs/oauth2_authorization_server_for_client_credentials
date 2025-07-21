@@ -107,6 +107,18 @@ $ curl -v -u mobile-app-client:mobile-app-secret-2025 -d "grant_type=client_cred
 $ curl http://localhost:9000/oauth2/jwks
 ```
 
+## Introspect JWT tokens with introspection endpoint
+
+* /oauth2/jwks
+```
+$ JWT_TOKEN="<your_access_token>"
+$ curl -v -X POST http://localhost:9000/oauth2/introspect \
+    -u "mobile-app-client:mobile-app-client-secret" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "token=${JWT_TOKEN}&token_type_hint=access_token"
+```
+
+# Keys to sign and verify JWT
 ## Generate public key pair with OpenSSL which algorithm is ES256
 
 ```
