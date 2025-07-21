@@ -91,10 +91,20 @@ Decoded JWT.
 $ ./test_request.sh
 ```
 
-## Getting public keys for JWT verification
+# Endpoints
 
+## Get the access token
+
+* /oauth2/introspect
 ```
-$ curl http://localhost:9000/oauth2/jwks | jq .
+$ curl -v -u mobile-app-client:mobile-app-secret-2025 -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+```
+
+## Get the public key for verifying JWT signature
+
+* /oauth2/jwks
+```
+$ curl http://localhost:9000/oauth2/jwks
 ```
 
 ## Generate public key pair with OpenSSL which algorithm is ES256
@@ -111,8 +121,6 @@ $ openssl pkcs8 -topk8 -nocrypt -in ${resource_dir}/ec-private-key-raw_never-use
 
 $ # Generate the public key from the private key
 $ openssl ec -in ${resource_dir}/ec-private-key_never-use-in-production.pem -pubout -out ${resource_dir}/ec-public-key_never-use-in-production.pem
-```
-
 ```
 
 * [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
