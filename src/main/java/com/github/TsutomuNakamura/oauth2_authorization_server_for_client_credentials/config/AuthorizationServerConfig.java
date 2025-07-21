@@ -39,16 +39,19 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.IntrospectorService;
 
 @Configuration
 public class AuthorizationServerConfig {
     
     private final KeysService keysService;
     private final ClientsService clientsService;
+    private final IntrospectorService introspectorService;
     
-    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService) {
+    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService, IntrospectorService introspectorService) {
         this.keysService = keysService;
         this.clientsService = clientsService;
+        this.introspectorService = introspectorService;
     }
     
     @Bean
@@ -72,16 +75,79 @@ public class AuthorizationServerConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain introspectionSecurityFilterChain(HttpSecurity http) throws Exception {
+        // Create custom client repository for introspection using introspector.yml
+        RegisteredClientRepository introspectorClientRepository = createIntrospectorClientRepository();
+        
         http.securityMatcher("/oauth2/introspect", "/oauth2/introspect/health")
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/oauth2/introspect").authenticated()
                 .requestMatchers("/oauth2/introspect/health").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(Customizer.withDefaults());
+            .httpBasic(Customizer.withDefaults())
+            .with(OAuth2AuthorizationServerConfigurer.authorizationServer()
+                .registeredClientRepository(introspectorClientRepository), Customizer.withDefaults());
 
-        System.out.println("Introspection Security Filter Chain initialized");
+        System.out.println("Introspection Security Filter Chain initialized with custom introspector client repository");
         return http.build();
+    }
+    
+    /**
+     * Creates a separate RegisteredClientRepository for introspection endpoints
+     * using credentials from introspector.yml instead of clients.yml
+     */
+    private RegisteredClientRepository createIntrospectorClientRepository() {
+        try {
+            System.out.println("Loading introspector clients from YAML configuration...");
+            
+            java.util.List<RegisteredClient> introspectorClients = new java.util.ArrayList<>();
+            java.util.Map<String, Object> allIntrospectors = introspectorService.getAllIntrospectors();
+            
+            if (allIntrospectors.isEmpty()) {
+                System.err.println("WARNING: No introspector clients found in introspector.yml");
+                throw new RuntimeException("No introspector clients configured in introspector.yml");
+            }
+            
+            for (String introspectorName : allIntrospectors.keySet()) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    java.util.Map<String, Object> introspector = (java.util.Map<String, Object>) allIntrospectors.get(introspectorName);
+                    
+                    String clientId = (String) introspector.get("client-id");
+                    String clientSecret = (String) introspector.get("client-secret");
+                    String clientName = (String) introspector.get("client-name");
+                    
+                    RegisteredClient introspectorClient = RegisteredClient.withId(UUID.randomUUID().toString())
+                            .clientId(clientId)
+                            .clientSecret("{noop}" + clientSecret)  // {noop} for plain text passwords
+                            .clientName(clientName)
+                            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                            .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                            .scope("introspect") // Special scope for introspection
+                            .tokenSettings(TokenSettings.builder()
+                                    .accessTokenTimeToLive(Duration.ofMinutes(60)) // Longer TTL for introspection services
+                                    .build())
+                            .build();
+                    
+                    introspectorClients.add(introspectorClient);
+                    
+                    System.out.println("Registered introspector client '" + clientId + "' (" + clientName + ") for introspection");
+                    
+                } catch (Exception e) {
+                    System.err.println("Failed to register introspector '" + introspectorName + "': " + e.getMessage());
+                    // Continue with other introspectors
+                }
+            }
+            
+            System.out.println("Total registered introspector clients: " + introspectorClients.size());
+            return new InMemoryRegisteredClientRepository(introspectorClients);
+            
+        } catch (Exception e) {
+            System.err.println("Failed to load introspector configuration: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Could not load introspector clients from introspector.yml", e);
+        }
     }
 
     @Bean
@@ -98,7 +164,7 @@ public class AuthorizationServerConfig {
                 throw new RuntimeException("Application startup failed: No OAuth2 clients configured in clients.yml. " +
                     "At least one client must be defined for the authorization server to function properly.");
             }
-            
+
             for (String clientName : allClients.keySet()) {
                 try {
                     String clientId = clientsService.getClientId(clientName);
