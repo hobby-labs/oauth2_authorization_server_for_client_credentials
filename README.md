@@ -109,7 +109,7 @@ $ curl http://localhost:9000/oauth2/jwks
 
 ## Introspect JWT tokens with introspection endpoint
 
-* /oauth2/jwks
+* /oauth2/introspect
 ```
 $ JWT_TOKEN="<your_access_token>"
 $ curl -v -X POST http://localhost:9000/oauth2/introspect \
@@ -133,13 +133,13 @@ $ resource_dir="./src/main/resources/keys"
 $ mkdir -p "${resource_dir}"
 
 $ # Generate a raw EC private key
-$ openssl ecparam -genkey -name prime256v1 -noout -out ${resource_dir}/ec-private-key-raw_never-use-in-production.pem
+$ openssl ecparam -genkey -name prime256v1 -noout -out ${resource_dir}/ec-private-key-raw-01_NEVER-USE-IN-PRODUCTION.pem
 
 $ # Convert the private key to PKCS#8 format
-$ openssl pkcs8 -topk8 -nocrypt -in ${resource_dir}/ec-private-key-raw_never-use-in-production.pem -out ${resource_dir}/ec-private-key_never-use-in-production.pem
+$ openssl pkcs8 -topk8 -nocrypt -in ${resource_dir}/ec-private-key-raw-01_NEVER-USE-IN-PRODUCTION.pem -out ${resource_dir}/ec-private-key-01_NEVER-USE-IN-PRODUCTION.pem
 
 $ # Generate the public key from the private key
-$ openssl ec -in ${resource_dir}/ec-private-key_never-use-in-production.pem -pubout -out ${resource_dir}/ec-public-key_never-use-in-production.pem
+$ openssl ec -in ${resource_dir}/ec-private-key-01_NEVER-USE-IN-PRODUCTION.pem -pubout -out ${resource_dir}/ec-public-key-01_NEVER-USE-IN-PRODUCTION.pem
 ```
 
 * [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
