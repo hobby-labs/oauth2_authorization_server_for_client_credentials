@@ -1,0 +1,27 @@
+# Introspection Service Credentials Configuration
+# These credentials are used specifically for the /oauth2/introspect endpoint
+# Separate from regular OAuth2 clients for enhanced security
+introspectors:
+  resource-server:
+    client-id: "resource-server-introspector"
+    client-secret: "resource-server-introspector-secret"
+    client-name: "Resource Server Introspection Service"
+    description: "Service for validating tokens on behalf of resource servers"
+
+  api-gateway:
+    client-id: "api-gateway-introspector"
+    client-secret: "api-gateway-introspector-secret"
+    client-name: "API Gateway Introspection Service"
+    description: "Service for API gateway token validation"
+
+  monitoring-service:
+    client-id: "monitoring-introspector"
+    client-secret: "monitoring-introspector-secret"
+    client-name: "Monitoring Service Introspection"
+    description: "Service for monitoring and health check token validation"
+
+  admin-dashboard:
+    client-id: "admin-dashboard-introspector"
+    client-secret: "admin-dashboard-introspector-secret"
+    client-name: "Admin Dashboard Introspection Service"
+    description: "Service for admin dashboard token validation"
