@@ -16,7 +16,6 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -39,16 +38,20 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.IntrospectionCredentialsService;
 
 @Configuration
 public class AuthorizationServerConfig {
     
     private final KeysService keysService;
     private final ClientsService clientsService;
+    private final IntrospectionCredentialsService introspectionCredentialsService;
     
-    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService) {
+    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService,
+                                   IntrospectionCredentialsService introspectionCredentialsService) {
         this.keysService = keysService;
         this.clientsService = clientsService;
+        this.introspectionCredentialsService = introspectionCredentialsService;
     }
     
     @Bean
@@ -65,25 +68,26 @@ public class AuthorizationServerConfig {
             .oauth2ResourceServer(resourceServer -> resourceServer
                 .jwt(Customizer.withDefaults()));
 
-        System.out.println("Authorization Server Security Filter Chain initialized");
+        System.out.println("Authorization Server Security Filter Chain initialized with default introspection");
         return http.build();
     }
-    
+
     @Bean
     @Order(2)
-    public SecurityFilterChain introspectionSecurityFilterChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/oauth2/introspect", "/oauth2/introspect/health")
+    public SecurityFilterChain customIntrospectionSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/oauth2/introspect/custom", "/oauth2/introspect/health")
             .authorizeHttpRequests(authz -> authz
-                .requestMatchers("/oauth2/introspect").authenticated()
+                .requestMatchers("/oauth2/introspect/custom").hasRole("INTROSPECTION_CLIENT")
                 .requestMatchers("/oauth2/introspect/health").permitAll()
                 .anyRequest().authenticated()
             )
-            .httpBasic(Customizer.withDefaults());
+            .httpBasic(Customizer.withDefaults())
+            .authenticationProvider(new IntrospectionAuthenticationProvider(introspectionCredentialsService));
 
-        System.out.println("Introspection Security Filter Chain initialized");
+        System.out.println("Custom Introspection Security Filter Chain initialized with custom authentication provider");
         return http.build();
     }
-
+    
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
         try {

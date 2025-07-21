@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -35,29 +36,34 @@ public class OAuth2IntrospectionController {
     private RegisteredClientRepository registeredClientRepository;
 
     /**
-     * OAuth2 Token Introspection Endpoint
-     * POST /oauth2/introspect
+     * Custom OAuth2 Token Introspection Endpoint with separated credentials
+     * POST /oauth2/introspect/custom
      * 
      * Request: token=<JWT_TOKEN>&token_type_hint=access_token
      * Response: JSON with token information or {"active": false}
      */
-    @PostMapping("/oauth2/introspect")
-    public ResponseEntity<Map<String, Object>> introspect(
+    @PostMapping("/oauth2/introspect/custom")
+    public ResponseEntity<Map<String, Object>> introspectCustom(
             @RequestParam("token") String token,
             @RequestParam(value = "token_type_hint", required = false) String tokenTypeHint,
             Authentication authentication) {
         
         Map<String, Object> response = new HashMap<>();
         
+        System.out.println("=== CUSTOM INTROSPECTION REQUEST ===");
+        System.out.println("Authentication type: " + (authentication != null ? authentication.getClass().getSimpleName() : "null"));
+        System.out.println("Authentication name: " + (authentication != null ? authentication.getName() : "null"));
+        System.out.println("Authorities: " + (authentication != null ? authentication.getAuthorities() : "null"));
+        
         try {
             // Validate that the requesting client is authenticated
             if (authentication == null || !authentication.isAuthenticated()) {
-                System.out.println("Introspection request without proper authentication");
+                System.out.println("Custom introspection request without proper authentication");
                 response.put("active", false);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
             }
             
-            System.out.println("Introspection request for token from client: " + authentication.getName());
+            System.out.println("Custom introspection request for token from client: " + authentication.getName());
             
             // Decode and validate the JWT token
             Jwt jwt = jwtDecoder.decode(token);
@@ -145,6 +151,7 @@ public class OAuth2IntrospectionController {
      * Health check endpoint to verify introspection service is running
      */
     @PostMapping("/oauth2/introspect/health")
+    @GetMapping("/oauth2/introspect/health")
     public ResponseEntity<Map<String, Object>> health() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "healthy");
