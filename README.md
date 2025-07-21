@@ -118,6 +118,13 @@ $ curl -v -X POST http://localhost:9000/oauth2/introspect \
     -d "token=${JWT_TOKEN}&token_type_hint=access_token"
 ```
 
+* Q. Should introspection endpoint have authentication mechanisms like "-u mobile-app-client:mobile-app-client-secret"?
+* A. Yes it should. In order to the section ["2.1.Introspection Request" in RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662#section-2.1) mentions below.
+
+```
+To prevent token scanning attacks, the endpoint MUST also require some form of authorization to access this endpoint, such as client authentication as described in OAuth 2.0 [RFC6749] or a separate OAuth 2.0 access token such as the bearer token described in OAuth2.0 Bearer Token Usage [RFC6750]. The methods of managing and validating these authentication credentials are out of scope of this specification.
+```
+
 # Keys to sign and verify JWT
 ## Generate public key pair with OpenSSL which algorithm is ES256
 
