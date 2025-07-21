@@ -21,7 +21,6 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
@@ -55,11 +54,15 @@ public class AuthorizationServerConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-        // Configure OAuth2 Authorization Server
-        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
+        // Configure OAuth2 Authorization Server with modern approach
+        OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = 
+            OAuth2AuthorizationServerConfigurer.authorizationServer()
+                .oidc(Customizer.withDefaults()); // Enable OIDC if needed
         
         http
-            .oauth2ResourceServer((resourceServer) -> resourceServer
+            .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+            .with(authorizationServerConfigurer, Customizer.withDefaults())
+            .oauth2ResourceServer(resourceServer -> resourceServer
                 .jwt(Customizer.withDefaults()));
 
         System.out.println("Authorization Server Security Filter Chain initialized");
