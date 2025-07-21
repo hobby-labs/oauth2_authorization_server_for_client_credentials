@@ -19,7 +19,7 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 @Service
 public class KeysService {
     
-    @Value("${keys.file.path:keys.yml}")
+    @Value("${keys.file.path:secrets.yml}")
     private String keysFilePath;
     
     private Map<String, Object> yamlData;
