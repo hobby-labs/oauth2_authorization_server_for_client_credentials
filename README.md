@@ -16,15 +16,23 @@ curl https://start.spring.io/starter.zip \
 ```
 
 ## Start the application
-
+* For testing parposes only
 ```
 $ ./mvnw spring-boot:run
 ```
 
-or
-
+* Specify the location of keys file
 ```
 $ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--keys.file.path=/path/to/keys.yml"
+```
+
+* Specify the location of application.yml
+```
+$ # (1) Additional Configuration Locations:
+$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.additional-location=file:/path/to/application.yml --keys.file.path=/path/to/keys.yml"
+
+$ # (2) Override Configuration Location:
+$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.location=file:/path/to/application.yml --keys.file.path=/path/to/keys.yml"
 ```
 
 ## Testing with curl
