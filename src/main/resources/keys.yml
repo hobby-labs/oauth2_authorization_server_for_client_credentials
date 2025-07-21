@@ -35,7 +35,7 @@ keys:
       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfh1/E1hy157gxgaSvHFoFCJi3Sgu
       Qr8OLeM0OQEyh7Z7qV03tZ7WxHlySkgh9wnJaF1FundmWxLj9Omw3xzC6Q==
       -----END PUBLIC KEY-----
-    keyId: "ec-backup-2025"
+    keyId: "ec-backup-01"
     algorithm: "ES256"
     curve: "P-256"
 
@@ -51,7 +51,7 @@ keys:
       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpff4yCw0Xd2wr2olLXp5CL9+2ihj
       Xu/KkJNnYi5tCxcfujqH8Fo385JUTk8bNi8F/tVP7k4UyQMaDKiQty/Zgg==
       -----END PUBLIC KEY-----
-    keyId: "ec-backup-2025"
+    keyId: "ec-backup-02"
     algorithm: "ES256"
     curve: "P-256"
 
@@ -67,7 +67,7 @@ keys:
       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn2UoA9J0SdCp159TejzT5J0+np4S
       XaPZy6k0YNieJMm0+RVEzmkCJb9m7UY9OjyYXf/jPEbL5K2DyLdl96fldg==
       -----END PUBLIC KEY-----
-    keyId: "ec-backup-2025"
+    keyId: "ec-backup-03"
     algorithm: "ES256"
     curve: "P-256"
 
