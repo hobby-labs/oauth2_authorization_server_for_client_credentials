@@ -14,11 +14,15 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
+import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
@@ -51,7 +55,7 @@ public class AuthorizationServerConfig {
     @Bean
     @Order(1)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-        // org.springframework.security:spring-security-oauth2-authorization-server:1.4.0
+        // Configure OAuth2 Authorization Server
         OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
         
         http
@@ -59,6 +63,21 @@ public class AuthorizationServerConfig {
                 .jwt(Customizer.withDefaults()));
 
         System.out.println("Authorization Server Security Filter Chain initialized");
+        return http.build();
+    }
+    
+    @Bean
+    @Order(2)
+    public SecurityFilterChain introspectionSecurityFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/oauth2/introspect", "/oauth2/introspect/health")
+            .authorizeHttpRequests(authz -> authz
+                .requestMatchers("/oauth2/introspect").authenticated()
+                .requestMatchers("/oauth2/introspect/health").permitAll()
+                .anyRequest().authenticated()
+            )
+            .httpBasic(Customizer.withDefaults());
+
+        System.out.println("Introspection Security Filter Chain initialized");
         return http.build();
     }
 
@@ -307,5 +326,15 @@ public class AuthorizationServerConfig {
                 .claim("client_name", registeredClient.getClientName() != null ? 
                     registeredClient.getClientName() : registeredClient.getClientId());
         };
+    }
+    
+    /**
+     * JWT Decoder for token introspection
+     * Uses the same JWK source as the encoder for consistent validation
+     */
+    @Bean
+    public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
+        System.out.println("Configuring JWT Decoder for token introspection");
+        return NimbusJwtDecoder.withJwkSetUri("http://localhost:9000/oauth2/jwks").build();
     }
 }
