@@ -42,33 +42,3 @@ keys:
 # Configuration for key usage
 config:
   primary-key: "ec"  # Which key to use as primary
-
-# OAuth2 Client Configurations
-clients:
-  mobile-app:
-    client-id: "mobile-app-client"
-    client-secret: "mobile-app-secret-2025"
-    client-name: "Mobile Application"
-    scopes: ["read", "write", "profile"]
-    access-token-ttl: 15  # minutes
-    
-  web-dashboard:
-    client-id: "web-dashboard-client"
-    client-secret: "dashboard-secret-secure-2025"
-    client-name: "Web Dashboard"
-    scopes: ["read", "write", "admin"]
-    access-token-ttl: 30  # minutes
-    
-  api-service:
-    client-id: "api-service-client"
-    client-secret: "api-service-secret-key-2025"
-    client-name: "Backend API Service"
-    scopes: ["read", "write", "system"]
-    access-token-ttl: 60  # minutes
-    
-  analytics-service:
-    client-id: "analytics-client"
-    client-secret: "analytics-secret-2025"
-    client-name: "Analytics Service"
-    scopes: ["read", "analytics"]
-    access-token-ttl: 10  # minutes

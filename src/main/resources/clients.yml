@@ -1,0 +1,29 @@
+# OAuth2 Client Configurations
+clients:
+  mobile-app:
+    client-id: "mobile-app-client"
+    client-secret: "mobile-app-client-secret"
+    client-name: "Mobile Application"
+    scopes: ["read", "write", "profile"]
+    access-token-ttl: 15  # minutes
+    
+  web-dashboard:
+    client-id: "web-dashboard-client"
+    client-secret: "web-dashboard-client-secret"
+    client-name: "Web Dashboard"
+    scopes: ["read", "write", "admin"]
+    access-token-ttl: 30  # minutes
+    
+  api-service:
+    client-id: "api-service-client"
+    client-secret: "api-service-client-secret"
+    client-name: "Backend API Service"
+    scopes: ["read", "write", "system"]
+    access-token-ttl: 60  # minutes
+    
+  analytics-service:
+    client-id: "analytics-client"
+    client-secret: "analytics-client-secret"
+    client-name: "Analytics Service"
+    scopes: ["read", "analytics"]
+    access-token-ttl: 10  # minutes

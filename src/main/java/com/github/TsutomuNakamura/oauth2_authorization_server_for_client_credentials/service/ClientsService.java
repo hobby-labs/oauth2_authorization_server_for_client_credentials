@@ -18,7 +18,7 @@ import java.util.List;
 @Service
 public class ClientsService {
     
-    @Value("${clients.file.path:secrets.yml}")
+    @Value("${clients.file.path:clients.yml}")
     private String clientsFilePath;
     
     private Map<String, Object> yamlData;

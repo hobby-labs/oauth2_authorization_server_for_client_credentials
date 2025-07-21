@@ -1,7 +1,5 @@
 # oauth2_authorization_server_for_client_credentials
 
-
-
 # Initialize project
 ```
 curl https://start.spring.io/starter.zip \
@@ -21,24 +19,15 @@ curl https://start.spring.io/starter.zip \
 $ ./mvnw spring-boot:run
 ```
 
-* Specify the location of keys file
+* Specify the location of files of properties and secrets
 ```
-$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--keys.file.path=/path/to/keys.yml"
-```
-
-* Specify the location of application.yml
-```
-$ # (1) Additional Configuration Locations:
-$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.additional-location=file:/path/to/application.yml --keys.file.path=/path/to/keys.yml"
-
-$ # (2) Override Configuration Location:
-$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.location=file:/path/to/application.yml --keys.file.path=/path/to/keys.yml"
+$ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.additional-location=file:/path/to/application.yml --keys.file.path=/path/to/keys.yml --clients.file.path=./external-clients.yml"
 ```
 
 ## Testing with curl
 
 ```
-$ curl -v -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+$ curl -v -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
 * Host localhost:9000 was resolved.
 * IPv6: ::1
 * IPv4: 127.0.0.1
@@ -71,8 +60,8 @@ $ curl -v -u my-client:my-secret -d "grant_type=client_credentials&scope=read" h
 ```
 
 ```
-$ response_body="$(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
-$ jwt=$(jq -r '.access_token' < <(curl -u my-client:my-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
+$ response_body="$(curl -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
+$ jwt=$(jq -r '.access_token' < <(curl -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
 $ jwt_header=$(echo -n ${jwt} | cut -d '.' -f 1 | base64 --decode)
 $ jwt_payload=$(echo -n ${jwt} | cut -d '.' -f 2 | base64 --decode)
 $ echo ${jwt_header} | jq
