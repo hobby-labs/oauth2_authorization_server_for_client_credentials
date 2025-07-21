@@ -266,18 +266,6 @@ public class AuthorizationServerConfig {
                 "MIICdTCCAhugAwIBAgIJAOExample2..."  // Optional: Additional certificates in the chain
             );
             
-            // Option 2: Generate self-signed certificate for testing (uncomment to use)
-            /*
-            try {
-                java.util.List<String> x5c = generateSelfSignedCertificate();
-                context.getJwsHeader().header("x5c", x5c);
-                return;
-            } catch (Exception e) {
-                System.err.println("Failed to generate self-signed certificate: " + e.getMessage());
-                // Fall back to static certificate
-            }
-            */
-            
             context.getJwsHeader().header("x5c", x5c);
             
             // Customize JWT payload (claims)
