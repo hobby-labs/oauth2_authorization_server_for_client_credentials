@@ -23,7 +23,7 @@ keys:
     curve: "P-256"
     
   # Backup key for rotation
-  ec-backup:
+  ec-backup-01:
     private: |
       -----BEGIN PRIVATE KEY-----
       MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgxRdOxWpv+dv92jku
@@ -34,6 +34,38 @@ keys:
       -----BEGIN PUBLIC KEY-----
       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfh1/E1hy157gxgaSvHFoFCJi3Sgu
       Qr8OLeM0OQEyh7Z7qV03tZ7WxHlySkgh9wnJaF1FundmWxLj9Omw3xzC6Q==
+      -----END PUBLIC KEY-----
+    keyId: "ec-backup-2025"
+    algorithm: "ES256"
+    curve: "P-256"
+
+  ec-backup-02:
+    private: |
+      -----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+y8O+UwBt7cdZ9pE
+      OimmJv7A0WGxzzKOOVAfXaloRROhRANCAASl9/jILDRd3bCvaiUtenkIv37aKGNe
+      78qQk2diLm0LFx+6OofwWjfzklROTxs2LwX+1U/uThTJAxoMqJC3L9mC
+      -----END PRIVATE KEY-----
+    public: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpff4yCw0Xd2wr2olLXp5CL9+2ihj
+      Xu/KkJNnYi5tCxcfujqH8Fo385JUTk8bNi8F/tVP7k4UyQMaDKiQty/Zgg==
+      -----END PUBLIC KEY-----
+    keyId: "ec-backup-2025"
+    algorithm: "ES256"
+    curve: "P-256"
+
+  ec-backup-03:
+    private: |
+      -----BEGIN PRIVATE KEY-----
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgohTX65hma5Tw9x6A
+      6bF4CQmQzwxonCxs7VHlU1/lk32hRANCAASfZSgD0nRJ0KnXn1N6PNPknT6enhJd
+      o9nLqTRg2J4kybT5FUTOaQIlv2btRj06PJhd/+M8RsvkrYPIt2X3p+V2
+      -----END PRIVATE KEY-----
+    public: |
+      -----BEGIN PUBLIC KEY-----
+      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn2UoA9J0SdCp159TejzT5J0+np4S
+      XaPZy6k0YNieJMm0+RVEzmkCJb9m7UY9OjyYXf/jPEbL5K2DyLdl96fldg==
       -----END PUBLIC KEY-----
     keyId: "ec-backup-2025"
     algorithm: "ES256"
