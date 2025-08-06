@@ -125,25 +125,30 @@ public class KeysService {
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
     }
     
+    /**
+     * Helper method to get primary key attribute with optional default value
+     */
+    private String getPrimaryKeyAttribute(String attributeName, String defaultValue) {
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
+        String value = (String) keyConfig.get(attributeName);
+        return value != null ? value : defaultValue;
+    }
+    
     public KeyPair getPrimaryKeyPair() throws Exception {
         Map<String, Object> keyConfig = getPrimaryKeyConfig();
         return createKeyPairFromConfig(keyConfig);
     }
     
     public String getPrimaryKeyId() {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
-        String keyId = (String) keyConfig.get("keyId");
-        return keyId != null ? keyId : "ec-key-from-yaml";
+        return getPrimaryKeyAttribute("keyId", "ec-key-from-yaml");
     }
     
     public String getPrimaryKeyAlgorithm() {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
-        return (String) keyConfig.get("algorithm");
+        return getPrimaryKeyAttribute("algorithm", null);
     }
     
     public String getPrimaryKeyCurve() {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
-        return (String) keyConfig.get("curve");
+        return getPrimaryKeyAttribute("curve", null);
     }
     
     public String getPrimaryKeyName() {
