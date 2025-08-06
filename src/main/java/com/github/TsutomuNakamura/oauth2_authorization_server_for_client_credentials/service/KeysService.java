@@ -134,6 +134,19 @@ public class KeysService {
         return value != null ? value : defaultValue;
     }
     
+    /**
+     * Helper method to get key attribute with optional default value and null-safe error handling
+     */
+    private String getKeyAttribute(String keyName, String attributeName, String defaultValue) {
+        try {
+            Map<String, Object> keyConfig = getKeyConfig(keyName);
+            String value = (String) keyConfig.get(attributeName);
+            return value != null ? value : defaultValue;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+    
     public KeyPair getPrimaryKeyPair() throws Exception {
         Map<String, Object> keyConfig = getPrimaryKeyConfig();
         return createKeyPairFromConfig(keyConfig);
@@ -174,36 +187,20 @@ public class KeysService {
      * Get key ID for a specific key name
      */
     public String getKeyId(String keyName) {
-        try {
-            Map<String, Object> keyConfig = getKeyConfig(keyName);
-            String keyId = (String) keyConfig.get("keyId");
-            return keyId != null ? keyId : keyName + "-default";
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return getKeyAttribute(keyName, "keyId", keyName + "-default");
     }
     
     /**
      * Get algorithm for a specific key name
      */
     public String getKeyAlgorithm(String keyName) {
-        try {
-            Map<String, Object> keyConfig = getKeyConfig(keyName);
-            return (String) keyConfig.get("algorithm");
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return getKeyAttribute(keyName, "algorithm", null);
     }
     
     /**
      * Get curve for a specific key name
      */
     public String getKeyCurve(String keyName) {
-        try {
-            Map<String, Object> keyConfig = getKeyConfig(keyName);
-            return (String) keyConfig.get("curve");
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return getKeyAttribute(keyName, "curve", null);
     }
 }
