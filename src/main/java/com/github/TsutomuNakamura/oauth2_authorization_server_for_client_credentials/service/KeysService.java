@@ -161,10 +161,17 @@ public class KeysService {
     }
     
     public KeyPair getPrimaryKeyPair() throws Exception {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
-        return createKeyPairFromConfig(keyConfig);
+        return getKeyPair(getPrimaryKeyName());
     }
     
+    /**
+     * Get key pair for a specific key name
+     */
+    public KeyPair getKeyPair(String keyName) throws Exception {
+        Map<String, Object> keyConfig = getKeyConfig(keyName);
+        return createKeyPairFromConfig(keyConfig);
+    }
+
     public String getPrimaryKeyId() {
         return getPrimaryKeyAttribute(KEY_ID_FIELD, DEFAULT_KEY_ID);
     }
@@ -183,15 +190,7 @@ public class KeysService {
     public java.util.Set<String> getAllKeyNames() {
         return getKeys().keySet();
     }
-    
-    /**
-     * Get key pair for a specific key name
-     */
-    public KeyPair getKeyPair(String keyName) throws Exception {
-        Map<String, Object> keyConfig = getKeyConfig(keyName);
-        return createKeyPairFromConfig(keyConfig);
-    }
-    
+        
     /**
      * Get key ID for a specific key name
      */
