@@ -37,16 +37,38 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 public class KeysService {
     
     // YAML configuration constants
+    
+    /** The name of the configuration section in the YAML file. */
     private static final String CONFIG_SECTION = "config";
+    
+    /** The name of the keys section in the YAML file. */
     private static final String KEYS_SECTION = "keys";
+    
+    /** The field name for the primary key configuration in the config section. */
     private static final String PRIMARY_KEY_FIELD = "primary-key";
+    
+    /** The field name for key ID in key configurations. */
     private static final String KEY_ID_FIELD = "keyId";
+    
+    /** The field name for algorithm specification in key configurations. */
     private static final String ALGORITHM_FIELD = "algorithm";
+    
+    /** The field name for curve type specification in key configurations. */
     private static final String CURVE_FIELD = "curve";
+    
+    /** The field name for private key PEM string in key configurations. */
     private static final String PRIVATE_KEY_FIELD = "private";
+    
+    /** The field name for public key PEM string in key configurations. */
     private static final String PUBLIC_KEY_FIELD = "public";
+    
+    /** The prefix used to identify classpath resources in file paths. */
     private static final String CLASSPATH_PREFIX = "classpath:";
+    
+    /** The default key ID used when no key ID is specified in configuration. */
     private static final String DEFAULT_KEY_ID = "ec-key-from-yaml";
+    
+    /** The suffix appended to key names when generating default key IDs. */
     private static final String DEFAULT_KEY_SUFFIX = "-default";
     
     /**
