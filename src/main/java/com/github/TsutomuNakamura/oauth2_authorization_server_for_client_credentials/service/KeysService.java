@@ -112,11 +112,18 @@ public class KeysService {
         return getKeyConfig(primaryKeyName);
     }
     
-    public KeyPair getPrimaryKeyPair() throws Exception {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
+    /**
+     * Helper method to create KeyPair from key configuration
+     */
+    private KeyPair createKeyPairFromConfig(Map<String, Object> keyConfig) throws Exception {
         String privateKeyPem = (String) keyConfig.get("private");
         String publicKeyPem = (String) keyConfig.get("public");
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
+    }
+    
+    public KeyPair getPrimaryKeyPair() throws Exception {
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
+        return createKeyPairFromConfig(keyConfig);
     }
     
     public String getPrimaryKeyId() {
@@ -151,9 +158,7 @@ public class KeysService {
      */
     public KeyPair getKeyPair(String keyName) throws Exception {
         Map<String, Object> keyConfig = getKeyConfig(keyName);
-        String privateKeyPem = (String) keyConfig.get("private");
-        String publicKeyPem = (String) keyConfig.get("public");
-        return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
+        return createKeyPairFromConfig(keyConfig);
     }
     
     /**
