@@ -23,9 +23,9 @@ public class KeysService {
     private String keysFilePath;
     
     private Map<String, Object> yamlData;
-    private Map<String, Object> configCache;
-    private Map<String, Object> keysCache;
-    private boolean configurationLoaded = false;
+    private volatile Map<String, Object> configCache;
+    private volatile Map<String, Object> keysCache;
+    private volatile boolean configurationLoaded = false;
     
     public KeysService() {
         // Configuration will be loaded lazily when first accessed
@@ -33,8 +33,12 @@ public class KeysService {
     
     private void ensureConfigurationLoaded() {
         if (!configurationLoaded) {
-            loadYamlConfiguration();
-            configurationLoaded = true;
+            synchronized (this) {
+                if (!configurationLoaded) {
+                    loadYamlConfiguration();
+                    configurationLoaded = true;
+                }
+            }
         }
     }
     
