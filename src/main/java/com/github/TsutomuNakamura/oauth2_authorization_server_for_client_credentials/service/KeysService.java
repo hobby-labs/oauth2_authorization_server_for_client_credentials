@@ -23,6 +23,8 @@ public class KeysService {
     private String keysFilePath;
     
     private Map<String, Object> yamlData;
+    private Map<String, Object> configCache;
+    private Map<String, Object> keysCache;
     private boolean configurationLoaded = false;
     
     public KeysService() {
@@ -55,6 +57,9 @@ public class KeysService {
             Yaml yaml = new Yaml();
             try (InputStream inputStream = resource.getInputStream()) {
                 yamlData = yaml.load(inputStream);
+                // Cache commonly used sections
+                configCache = (Map<String, Object>) yamlData.get("config");
+                keysCache = (Map<String, Object>) yamlData.get("keys");
             }
             System.out.println("Successfully loaded keys configuration from: " + keysFilePath);
         } catch (Exception e) {
@@ -63,140 +68,128 @@ public class KeysService {
         }
     }
     
-    @SuppressWarnings("unchecked")
-    public KeyPair getPrimaryKeyPair() throws Exception {
+    /**
+     * Helper method to get config section
+     */
+    private Map<String, Object> getConfig() {
         ensureConfigurationLoaded();
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        String primaryKeyName = (String) config.get("primary-key");
-        
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(primaryKeyName);
-        
+        return configCache;
+    }
+    
+    /**
+     * Helper method to get keys section
+     */
+    private Map<String, Object> getKeys() {
+        ensureConfigurationLoaded();
+        return keysCache;
+    }
+    
+    /**
+     * Helper method to get primary key name
+     */
+    private String getPrimaryKeyNameInternal() {
+        return (String) getConfig().get("primary-key");
+    }
+    
+    /**
+     * Helper method to get key configuration for a specific key
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getKeyConfig(String keyName) {
+        Map<String, Object> keys = getKeys();
+        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+        if (keyConfig == null) {
+            throw new IllegalArgumentException("Key not found: " + keyName);
+        }
+        return keyConfig;
+    }
+    
+    /**
+     * Helper method to get primary key configuration
+     */
+    private Map<String, Object> getPrimaryKeyConfig() {
+        String primaryKeyName = getPrimaryKeyNameInternal();
+        return getKeyConfig(primaryKeyName);
+    }
+    
+    public KeyPair getPrimaryKeyPair() throws Exception {
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
         String privateKeyPem = (String) keyConfig.get("private");
         String publicKeyPem = (String) keyConfig.get("public");
-        
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
     }
     
-    @SuppressWarnings("unchecked")
     public String getPrimaryKeyId() {
-        ensureConfigurationLoaded();
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        String primaryKeyName = (String) config.get("primary-key");
-        
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(primaryKeyName);
-        
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
         String keyId = (String) keyConfig.get("keyId");
         return keyId != null ? keyId : "ec-key-from-yaml";
     }
     
-    @SuppressWarnings("unchecked")
     public String getPrimaryKeyAlgorithm() {
-        ensureConfigurationLoaded();
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        String primaryKeyName = (String) config.get("primary-key");
-        
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(primaryKeyName);
-        
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
         return (String) keyConfig.get("algorithm");
     }
     
-    @SuppressWarnings("unchecked")
     public String getPrimaryKeyCurve() {
-        ensureConfigurationLoaded();
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        String primaryKeyName = (String) config.get("primary-key");
-        
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(primaryKeyName);
-        
+        Map<String, Object> keyConfig = getPrimaryKeyConfig();
         return (String) keyConfig.get("curve");
     }
     
-    @SuppressWarnings("unchecked")
     public String getPrimaryKeyName() {
-        ensureConfigurationLoaded();
-        Map<String, Object> config = (Map<String, Object>) yamlData.get("config");
-        return (String) config.get("primary-key");
+        return getPrimaryKeyNameInternal();
     }
 
     /**
      * Get all available key names
      */
-    @SuppressWarnings("unchecked")
     public java.util.Set<String> getAllKeyNames() {
-        ensureConfigurationLoaded();
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        return keys.keySet();
+        return getKeys().keySet();
     }
     
     /**
      * Get key pair for a specific key name
      */
-    @SuppressWarnings("unchecked")
     public KeyPair getKeyPair(String keyName) throws Exception {
-        ensureConfigurationLoaded();
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
-        
-        if (keyConfig == null) {
-            throw new IllegalArgumentException("Key not found: " + keyName);
-        }
-        
+        Map<String, Object> keyConfig = getKeyConfig(keyName);
         String privateKeyPem = (String) keyConfig.get("private");
         String publicKeyPem = (String) keyConfig.get("public");
-        
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
     }
     
     /**
      * Get key ID for a specific key name
      */
-    @SuppressWarnings("unchecked")
     public String getKeyId(String keyName) {
-        ensureConfigurationLoaded();
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
-        
-        if (keyConfig == null) {
+        try {
+            Map<String, Object> keyConfig = getKeyConfig(keyName);
+            String keyId = (String) keyConfig.get("keyId");
+            return keyId != null ? keyId : keyName + "-default";
+        } catch (IllegalArgumentException e) {
             return null;
         }
-        
-        String keyId = (String) keyConfig.get("keyId");
-        return keyId != null ? keyId : keyName + "-default";
     }
     
     /**
      * Get algorithm for a specific key name
      */
-    @SuppressWarnings("unchecked")
     public String getKeyAlgorithm(String keyName) {
-        ensureConfigurationLoaded();
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
-        
-        if (keyConfig == null) {
+        try {
+            Map<String, Object> keyConfig = getKeyConfig(keyName);
+            return (String) keyConfig.get("algorithm");
+        } catch (IllegalArgumentException e) {
             return null;
         }
-        
-        return (String) keyConfig.get("algorithm");
     }
     
     /**
      * Get curve for a specific key name
      */
-    @SuppressWarnings("unchecked")
     public String getKeyCurve(String keyName) {
-        ensureConfigurationLoaded();
-        Map<String, Object> keys = (Map<String, Object>) yamlData.get("keys");
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
-        
-        if (keyConfig == null) {
+        try {
+            Map<String, Object> keyConfig = getKeyConfig(keyName);
+            return (String) keyConfig.get("curve");
+        } catch (IllegalArgumentException e) {
             return null;
         }
-        
-        return (String) keyConfig.get("curve");
     }
 }
