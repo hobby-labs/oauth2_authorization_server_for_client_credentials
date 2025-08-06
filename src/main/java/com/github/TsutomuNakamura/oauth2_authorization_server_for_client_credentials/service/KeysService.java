@@ -102,9 +102,9 @@ public class KeysService {
     }
     
     /**
-     * Helper method to get primary key name
+     * Get primary key name
      */
-    private String getPrimaryKeyNameInternal() {
+    public String getPrimaryKeyName() {
         return (String) getConfig().get(PRIMARY_KEY_FIELD);
     }
     
@@ -125,7 +125,7 @@ public class KeysService {
      * Helper method to get primary key configuration
      */
     private Map<String, Object> getPrimaryKeyConfig() {
-        String primaryKeyName = getPrimaryKeyNameInternal();
+        String primaryKeyName = getPrimaryKeyName();
         return getKeyConfig(primaryKeyName);
     }
     
@@ -175,10 +175,6 @@ public class KeysService {
     
     public String getPrimaryKeyCurve() {
         return getPrimaryKeyAttribute(CURVE_FIELD, null);
-    }
-    
-    public String getPrimaryKeyName() {
-        return getPrimaryKeyNameInternal();
     }
 
     /**
