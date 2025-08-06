@@ -19,6 +19,19 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 @Service
 public class KeysService {
     
+    // YAML configuration constants
+    private static final String CONFIG_SECTION = "config";
+    private static final String KEYS_SECTION = "keys";
+    private static final String PRIMARY_KEY_FIELD = "primary-key";
+    private static final String KEY_ID_FIELD = "keyId";
+    private static final String ALGORITHM_FIELD = "algorithm";
+    private static final String CURVE_FIELD = "curve";
+    private static final String PRIVATE_KEY_FIELD = "private";
+    private static final String PUBLIC_KEY_FIELD = "public";
+    private static final String CLASSPATH_PREFIX = "classpath:";
+    private static final String DEFAULT_KEY_ID = "ec-key-from-yaml";
+    private static final String DEFAULT_KEY_SUFFIX = "-default";
+    
     @Value("${keys.file.path:keys.yml}")
     private String keysFilePath;
     
@@ -44,9 +57,9 @@ public class KeysService {
     
     private Resource getKeysResource() {
         // If the path starts with classpath: or is just a filename, use ClassPathResource
-        if (keysFilePath.startsWith("classpath:") || !keysFilePath.contains("/")) {
-            String resourcePath = keysFilePath.startsWith("classpath:") ? 
-                keysFilePath.substring("classpath:".length()) : keysFilePath;
+        if (keysFilePath.startsWith(CLASSPATH_PREFIX) || !keysFilePath.contains("/")) {
+            String resourcePath = keysFilePath.startsWith(CLASSPATH_PREFIX) ? 
+                keysFilePath.substring(CLASSPATH_PREFIX.length()) : keysFilePath;
             return new ClassPathResource(resourcePath);
         } else {
             // Otherwise, treat it as a file system path
@@ -62,8 +75,8 @@ public class KeysService {
             try (InputStream inputStream = resource.getInputStream()) {
                 yamlData = yaml.load(inputStream);
                 // Cache commonly used sections
-                configCache = (Map<String, Object>) yamlData.get("config");
-                keysCache = (Map<String, Object>) yamlData.get("keys");
+                configCache = (Map<String, Object>) yamlData.get(CONFIG_SECTION);
+                keysCache = (Map<String, Object>) yamlData.get(KEYS_SECTION);
             }
             System.out.println("Successfully loaded keys configuration from: " + keysFilePath);
         } catch (Exception e) {
@@ -92,7 +105,7 @@ public class KeysService {
      * Helper method to get primary key name
      */
     private String getPrimaryKeyNameInternal() {
-        return (String) getConfig().get("primary-key");
+        return (String) getConfig().get(PRIMARY_KEY_FIELD);
     }
     
     /**
@@ -120,8 +133,8 @@ public class KeysService {
      * Helper method to create KeyPair from key configuration
      */
     private KeyPair createKeyPairFromConfig(Map<String, Object> keyConfig) throws Exception {
-        String privateKeyPem = (String) keyConfig.get("private");
-        String publicKeyPem = (String) keyConfig.get("public");
+        String privateKeyPem = (String) keyConfig.get(PRIVATE_KEY_FIELD);
+        String publicKeyPem = (String) keyConfig.get(PUBLIC_KEY_FIELD);
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
     }
     
@@ -153,15 +166,15 @@ public class KeysService {
     }
     
     public String getPrimaryKeyId() {
-        return getPrimaryKeyAttribute("keyId", "ec-key-from-yaml");
+        return getPrimaryKeyAttribute(KEY_ID_FIELD, DEFAULT_KEY_ID);
     }
     
     public String getPrimaryKeyAlgorithm() {
-        return getPrimaryKeyAttribute("algorithm", null);
+        return getPrimaryKeyAttribute(ALGORITHM_FIELD, null);
     }
     
     public String getPrimaryKeyCurve() {
-        return getPrimaryKeyAttribute("curve", null);
+        return getPrimaryKeyAttribute(CURVE_FIELD, null);
     }
     
     public String getPrimaryKeyName() {
@@ -187,20 +200,20 @@ public class KeysService {
      * Get key ID for a specific key name
      */
     public String getKeyId(String keyName) {
-        return getKeyAttribute(keyName, "keyId", keyName + "-default");
+        return getKeyAttribute(keyName, KEY_ID_FIELD, keyName + DEFAULT_KEY_SUFFIX);
     }
     
     /**
      * Get algorithm for a specific key name
      */
     public String getKeyAlgorithm(String keyName) {
-        return getKeyAttribute(keyName, "algorithm", null);
+        return getKeyAttribute(keyName, ALGORITHM_FIELD, null);
     }
     
     /**
      * Get curve for a specific key name
      */
     public String getKeyCurve(String keyName) {
-        return getKeyAttribute(keyName, "curve", null);
+        return getKeyAttribute(keyName, CURVE_FIELD, null);
     }
 }
