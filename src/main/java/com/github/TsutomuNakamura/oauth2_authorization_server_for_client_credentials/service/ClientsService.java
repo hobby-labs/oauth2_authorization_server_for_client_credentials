@@ -73,12 +73,19 @@ public class ClientsService {
     }
     
     /**
-     * Get all client configurations
+     * Helper method to get clients section from YAML data
      */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getAllClients() {
+    private Map<String, Object> getClientsSection() {
         ensureConfigurationLoaded();
-        Map<String, Object> clients = (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
+        return (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
+    }
+
+    /**
+     * Get all client configurations
+     */
+    public Map<String, Object> getAllClients() {
+        Map<String, Object> clients = getClientsSection();
         return clients != null ? clients : Map.of();
     }
     
@@ -87,8 +94,7 @@ public class ClientsService {
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> getClientConfig(String clientName) {
-        ensureConfigurationLoaded();
-        Map<String, Object> clients = (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
+        Map<String, Object> clients = getClientsSection();
         if (clients == null) {
             return null;
         }
