@@ -18,6 +18,17 @@ import java.util.List;
 @Service
 public class ClientsService {
     
+    // YAML configuration constants
+    private static final String CLIENTS_SECTION = "clients";
+    private static final String CLIENT_ID_FIELD = "client-id";
+    private static final String CLIENT_SECRET_FIELD = "client-secret";
+    private static final String CLIENT_NAME_FIELD = "client-name";
+    private static final String SCOPES_FIELD = "scopes";
+    private static final String ACCESS_TOKEN_TTL_FIELD = "access-token-ttl";
+    private static final String CLASSPATH_PREFIX = "classpath:";
+    private static final String DEFAULT_SCOPE = "read";
+    private static final Duration DEFAULT_TTL = Duration.ofMinutes(5);
+    
     @Value("${clients.file.path:clients.yml}")
     private String clientsFilePath;
     
@@ -37,9 +48,9 @@ public class ClientsService {
     
     private Resource getClientsResource() {
         // If the path starts with classpath: or is just a filename, use ClassPathResource
-        if (clientsFilePath.startsWith("classpath:") || !clientsFilePath.contains("/")) {
-            String resourcePath = clientsFilePath.startsWith("classpath:") ? 
-                clientsFilePath.substring("classpath:".length()) : clientsFilePath;
+        if (clientsFilePath.startsWith(CLASSPATH_PREFIX) || !clientsFilePath.contains("/")) {
+            String resourcePath = clientsFilePath.startsWith(CLASSPATH_PREFIX) ? 
+                clientsFilePath.substring(CLASSPATH_PREFIX.length()) : clientsFilePath;
             return new ClassPathResource(resourcePath);
         } else {
             // Otherwise, treat it as a file system path
@@ -47,7 +58,6 @@ public class ClientsService {
         }
     }
     
-    @SuppressWarnings("unchecked")
     private void loadYamlConfiguration() {
         try {
             Resource resource = getClientsResource();
@@ -68,7 +78,7 @@ public class ClientsService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> getAllClients() {
         ensureConfigurationLoaded();
-        Map<String, Object> clients = (Map<String, Object>) yamlData.get("clients");
+        Map<String, Object> clients = (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
         return clients != null ? clients : Map.of();
     }
     
@@ -78,7 +88,7 @@ public class ClientsService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> getClientConfig(String clientName) {
         ensureConfigurationLoaded();
-        Map<String, Object> clients = (Map<String, Object>) yamlData.get("clients");
+        Map<String, Object> clients = (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
         if (clients == null) {
             return null;
         }
@@ -90,7 +100,7 @@ public class ClientsService {
      */
     public String getClientId(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get("client-id") : null;
+        return clientConfig != null ? (String) clientConfig.get(CLIENT_ID_FIELD) : null;
     }
     
     /**
@@ -98,7 +108,7 @@ public class ClientsService {
      */
     public String getClientSecret(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get("client-secret") : null;
+        return clientConfig != null ? (String) clientConfig.get(CLIENT_SECRET_FIELD) : null;
     }
     
     /**
@@ -106,7 +116,7 @@ public class ClientsService {
      */
     public String getClientDisplayName(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get("client-name") : clientName;
+        return clientConfig != null ? (String) clientConfig.get(CLIENT_NAME_FIELD) : clientName;
     }
     
     /**
@@ -116,14 +126,14 @@ public class ClientsService {
     public List<String> getClientScopes(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
-            return List.of("read"); // Default scope
+            return List.of(DEFAULT_SCOPE); // Default scope
         }
         
-        Object scopes = clientConfig.get("scopes");
+        Object scopes = clientConfig.get(SCOPES_FIELD);
         if (scopes instanceof List) {
             return (List<String>) scopes;
         }
-        return List.of("read"); // Default scope
+        return List.of(DEFAULT_SCOPE); // Default scope
     }
     
     /**
@@ -132,13 +142,13 @@ public class ClientsService {
     public Duration getAccessTokenTtl(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
-            return Duration.ofMinutes(5); // Default TTL
+            return DEFAULT_TTL; // Default TTL
         }
         
-        Object ttl = clientConfig.get("access-token-ttl");
+        Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
         if (ttl instanceof Integer) {
             return Duration.ofMinutes((Integer) ttl);
         }
-        return Duration.ofMinutes(5); // Default TTL
+        return DEFAULT_TTL; // Default TTL
     }
 }
