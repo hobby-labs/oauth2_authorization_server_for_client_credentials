@@ -33,16 +33,29 @@ public class ClientsService {
     private String clientsFilePath;
     
     private Map<String, Object> yamlData;
-    private boolean configurationLoaded = false;
+    private volatile boolean configurationLoaded = false;
     
     public ClientsService() {
         // Configuration will be loaded lazily when first accessed
     }
     
+    /**
+     * Ensures the YAML configuration is loaded using double-checked locking pattern.
+     * 
+     * <p>This method implements thread-safe lazy initialization of the configuration.
+     * The double-checked locking pattern ensures that even in multi-threaded 
+     * environments, the configuration is loaded exactly once.</p>
+     * 
+     * <p>Thread Safety: Uses synchronized block with volatile boolean flag.</p>
+     */
     private void ensureConfigurationLoaded() {
         if (!configurationLoaded) {
-            loadYamlConfiguration();
-            configurationLoaded = true;
+            synchronized (this) {
+                if (!configurationLoaded) {
+                    loadYamlConfiguration();
+                    configurationLoaded = true;
+                }
+            }
         }
     }
     
