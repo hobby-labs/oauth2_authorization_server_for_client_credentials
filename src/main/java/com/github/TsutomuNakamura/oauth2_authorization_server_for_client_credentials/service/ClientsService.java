@@ -96,27 +96,32 @@ public class ClientsService {
     }
     
     /**
+     * Helper method to get client attribute with optional default value
+     */
+    private String getClientAttribute(String clientName, String attributeName, String defaultValue) {
+        Map<String, Object> clientConfig = getClientConfig(clientName);
+        return clientConfig != null ? (String) clientConfig.get(attributeName) : defaultValue;
+    }
+
+    /**
      * Get client ID for a specific client name
      */
     public String getClientId(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get(CLIENT_ID_FIELD) : null;
+        return getClientAttribute(clientName, CLIENT_ID_FIELD, null);
     }
     
     /**
      * Get client secret for a specific client name
      */
     public String getClientSecret(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get(CLIENT_SECRET_FIELD) : null;
+        return getClientAttribute(clientName, CLIENT_SECRET_FIELD, null);
     }
     
     /**
      * Get client display name for a specific client name
      */
     public String getClientDisplayName(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get(CLIENT_NAME_FIELD) : clientName;
+        return getClientAttribute(clientName, CLIENT_NAME_FIELD, clientName);
     }
     
     /**
