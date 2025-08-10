@@ -16,7 +16,6 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -77,57 +76,47 @@ public class AuthorizationServerConfig {
         java.util.Map<String, Object> allClients = clientsService.getAllClients();
         
         if (allClients.isEmpty()) {
-            System.out.println("No clients found in configuration, creating default client");
-            // Fallback to default client if no clients configured
-            RegisteredClient defaultClient = RegisteredClient.withId(UUID.randomUUID().toString())
-                    .clientId("my-client")
-                    .clientSecret("{noop}my-secret")
-                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                    .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                    .scope("read")
-                    .scope("write")
-                    .tokenSettings(TokenSettings.builder()
-                            .accessTokenTimeToLive(Duration.ofMinutes(5))
-                            .build())
-                    .build();
-            clients.add(defaultClient);
-        } else {
-            for (String clientName : allClients.keySet()) {
-                try {
-                    String clientId = clientsService.getClientId(clientName);
-                    String clientSecret = clientsService.getClientSecret(clientName);
-                    String displayName = clientsService.getClientDisplayName(clientName);
-                    java.util.List<String> scopes = clientsService.getClientScopes(clientName);
-                    Duration tokenTtl = clientsService.getAccessTokenTtl(clientName);
-                    
-                    RegisteredClient.Builder clientBuilder = RegisteredClient.withId(UUID.randomUUID().toString())
-                            .clientId(clientId)
-                            .clientSecret("{noop}" + clientSecret)  // {noop} for plain text passwords in development
-                            .clientName(displayName)
-                            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                            .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS);
-                    
-                    // Add scopes
-                    for (String scope : scopes) {
-                        clientBuilder.scope(scope);
-                    }
-                    
-                    // Set token settings
-                    clientBuilder.tokenSettings(TokenSettings.builder()
-                            .accessTokenTimeToLive(tokenTtl)
-                            .build());
-                    
-                    RegisteredClient registeredClient = clientBuilder.build();
-                    clients.add(registeredClient);
-                    
-                    System.out.println("Registered client '" + clientId + "' (" + displayName + ") with scopes: " + scopes + ", TTL: " + tokenTtl.toMinutes() + "min");
-                    
-                } catch (Exception e) {
-                    System.err.println("Failed to register client '" + clientName + "': " + e.getMessage());
-                    // Continue with other clients
+            System.err.println("ERROR: No clients found in configuration file!");
+            System.err.println("Please ensure clients.yml contains proper client entries.");
+            System.err.println("Application startup will be aborted.");
+            throw new IllegalStateException("No OAuth2 clients configured in clients.yml. " +
+                "Application requires at least one client to be defined in the configuration file.");
+        }
+        
+        for (String clientName : allClients.keySet()) {
+            try {
+                String clientId = clientsService.getClientId(clientName);
+                String clientSecret = clientsService.getClientSecret(clientName);
+                String displayName = clientsService.getClientDisplayName(clientName);
+                java.util.List<String> scopes = clientsService.getClientScopes(clientName);
+                Duration tokenTtl = clientsService.getAccessTokenTtl(clientName);
+                
+                RegisteredClient.Builder clientBuilder = RegisteredClient.withId(UUID.randomUUID().toString())
+                        .clientId(clientId)
+                        .clientSecret("{noop}" + clientSecret)  // {noop} for plain text passwords in development
+                        .clientName(displayName)
+                        .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                        .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                        .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS);
+                
+                // Add scopes
+                for (String scope : scopes) {
+                    clientBuilder.scope(scope);
                 }
+                
+                // Set token settings
+                clientBuilder.tokenSettings(TokenSettings.builder()
+                        .accessTokenTimeToLive(tokenTtl)
+                        .build());
+                
+                RegisteredClient registeredClient = clientBuilder.build();
+                clients.add(registeredClient);
+                
+                System.out.println("Registered client '" + clientId + "' (" + displayName + ") with scopes: " + scopes + ", TTL: " + tokenTtl.toMinutes() + "min");
+                
+            } catch (Exception e) {
+                System.err.println("Failed to register client '" + clientName + "': " + e.getMessage());
+                // Continue with other clients
             }
         }
         
