@@ -146,7 +146,7 @@ subjectAltName=DNS:bob.users.example.com
 EOF
 
 # Sign end-entity (server+client)
-openssl ca -batch -config openssl.cnf -in ../end-entities/csr/bob.users.example.com.csr.pem -extensions ee_server_client -extfile ee_san.cnf -days 365 -notext -md sha256 -out ../end-entities/certs/bob.users.example.com.cert.pem
+openssl ca -batch -config openssl.cnf -in ../end-entities/csr/bob.users.example.com.csr.pem -extensions ee_server_client -extfile ee_san.cnf -days 730 -notext -md sha256 -out ../end-entities/certs/bob.users.example.com.cert.pem
 
 # Fullchain (server cert + intermediate)
 cat ../end-entities/certs/bob.users.example.com.cert.pem certs/intermediate-ca.pem > ../end-entities/certs/bob.users.example.com.fullchain.pem
