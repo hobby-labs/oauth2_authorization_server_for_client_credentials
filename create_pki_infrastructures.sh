@@ -2,7 +2,7 @@
 #
 # ivan.ca.example.com   PKI infrastructure setup script
 #   |
-#   +-
+#   +-trent.
 #   
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
@@ -19,8 +19,11 @@ main() {
     create_ca  "ivan"
     # Create intermediate CA
     create_int "ivan" "trent"
+    create_int "ivan" "pat"
     # Create end-entities
     create_ee "trent" "bob"
+    create_ee "trent" "alice"
+    create_ee "pat" "charlie"
 }
 
 create_ca() {
@@ -146,7 +149,7 @@ extendedKeyUsage=codeSigning
 [ crl_ext ]
 authorityKeyIdentifier=keyid:always
 [ alt_names ]
-DNS.1=${name}.users.example.com
+DNS.1=${name}.ee.example.com
 EOF
 
     cd ${work_dir}
