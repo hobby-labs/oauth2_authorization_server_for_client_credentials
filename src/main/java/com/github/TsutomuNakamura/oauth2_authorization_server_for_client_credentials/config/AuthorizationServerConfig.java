@@ -47,6 +47,7 @@ import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder;
 
 @Configuration
 public class AuthorizationServerConfig {
@@ -258,9 +259,7 @@ public class AuthorizationServerConfig {
                     
                     for (String certPem : certificateChain) {
                         try {
-                            String derBase64 = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder
-                                .buildX5cChain(certPem).get(0);
-                            x5cChain.add(derBase64);
+                            String derBase64 = CertificateChainBuilder.buildX5cChain(certPem).get(0);x5cChain.add(derBase64);
                         } catch (Exception e) {
                             System.err.println("Failed to convert certificate to DER format: " + e.getMessage());
                         }
