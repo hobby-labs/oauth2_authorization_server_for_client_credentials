@@ -1,0 +1,56 @@
+[ ca ]
+default_ca=CA_default
+[ CA_default ]
+dir=.
+certs=$dir/certs
+crl_dir=$dir/crl
+new_certs_dir=$dir/newcerts
+database=$dir/index.txt
+serial=$dir/serial
+crlnumber=$dir/crlnumber
+certificate=$dir/certs/intermediate-ca.cert.pem
+private_key=$dir/private/intermediate-ca.key.pem
+default_md=sha256
+default_days=3650
+unique_subject=no
+policy=policy_loose
+crl_extensions=crl_ext
+[ policy_loose ]
+commonName = supplied
+[ req ]
+default_md=sha256
+distinguished_name=req_dn
+string_mask=utf8only
+x509_extensions=v3_intermediate_ca
+prompt=no
+[ req_dn ]
+CN=pat.interm.example.com
+[ v3_intermediate_ca ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid:always,issuer
+basicConstraints=critical,CA:true,pathlen:0
+keyUsage=critical,keyCertSign,cRLSign
+[ ee_server_client ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth
+subjectAltName=@alt_names
+[ ee_code_signing ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=codeSigning
+[ ee_multi_purpose ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth,codeSigning
+subjectAltName=@alt_names
+[ crl_ext ]
+authorityKeyIdentifier=keyid:always
+[ alt_names ]
+DNS.1=pat.ee.example.com

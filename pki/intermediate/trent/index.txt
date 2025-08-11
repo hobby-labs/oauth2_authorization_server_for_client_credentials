@@ -1,0 +1,2 @@
+V	270811032940Z		2000	unknown	/CN=bob.ee.example.com
+V	270811032940Z		2001	unknown	/CN=alice.ee.example.com
