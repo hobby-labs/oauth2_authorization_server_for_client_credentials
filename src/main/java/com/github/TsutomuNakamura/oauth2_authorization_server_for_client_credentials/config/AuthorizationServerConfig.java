@@ -2,6 +2,15 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import java.security.KeyPair;
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.Set;
+
+import com.nimbusds.jose.jwk.JWK;
+
+import java.security.interfaces.ECPublicKey;
+import java.security.interfaces.ECPrivateKey;
 
 import java.time.Duration;
 
@@ -72,8 +81,8 @@ public class AuthorizationServerConfig {
     public RegisteredClientRepository registeredClientRepository() {
         System.out.println("Loading OAuth2 clients from YAML configuration...");
         
-        java.util.List<RegisteredClient> clients = new java.util.ArrayList<>();
-        java.util.Map<String, Object> allClients = clientsService.getAllClients();
+        List<RegisteredClient> clients = new ArrayList<>();
+        Map<String, Object> allClients = clientsService.getAllClients();
         
         if (allClients.isEmpty()) {
             System.err.println("ERROR: No clients found in configuration file!");
@@ -88,7 +97,7 @@ public class AuthorizationServerConfig {
                 String clientId = clientsService.getClientId(clientName);
                 String clientSecret = clientsService.getClientSecret(clientName);
                 String displayName = clientsService.getClientDisplayName(clientName);
-                java.util.List<String> scopes = clientsService.getClientScopes(clientName);
+                List<String> scopes = clientsService.getClientScopes(clientName);
                 Duration tokenTtl = clientsService.getAccessTokenTtl(clientName);
                 
                 RegisteredClient.Builder clientBuilder = RegisteredClient.withId(UUID.randomUUID().toString())
@@ -129,10 +138,10 @@ public class AuthorizationServerConfig {
         try {
             System.out.println("Loading EC keys from YAML configuration for key rotation...");
             
-            java.util.List<com.nimbusds.jose.jwk.JWK> jwkList = new java.util.ArrayList<>();
+            List<JWK> jwkList = new ArrayList<>();
             
             // Load all keys for rotation
-            java.util.Set<String> allKeyNames = keysService.getAllKeyNames();
+            Set<String> allKeyNames = keysService.getAllKeyNames();
             System.out.println("Loading multiple keys for rotation: " + allKeyNames);
             
             for (String keyName : allKeyNames) {
@@ -140,14 +149,14 @@ public class AuthorizationServerConfig {
                     KeyPair keyPair = keysService.getKeyPair(keyName);
                     String keyId = keysService.getKeyId(keyName);
                     
-                    java.security.interfaces.ECPublicKey ecPublicKey = (java.security.interfaces.ECPublicKey) keyPair.getPublic();
-                    java.security.interfaces.ECPrivateKey ecPrivateKey = (java.security.interfaces.ECPrivateKey) keyPair.getPrivate();
+                    ECPublicKey ecPublicKey = (ECPublicKey) keyPair.getPublic();
+                    ECPrivateKey ecPrivateKey = (ECPrivateKey) keyPair.getPrivate();
                     
                     // For non-primary keys, only include public key operations
                     boolean isPrimary = keyName.equals(keysService.getPrimaryKeyName());
-                    java.util.Set<KeyOperation> keyOps = isPrimary ? 
-                        java.util.Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
-                        java.util.Set.of(KeyOperation.VERIFY);
+                    Set<KeyOperation> keyOps = isPrimary ? 
+                        Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
+                        Set.of(KeyOperation.VERIFY);
                         
                     ECKey.Builder ecKeyBuilder = new ECKey.Builder(Curve.P_256, ecPublicKey)
                             .keyID(keyId)
@@ -200,7 +209,7 @@ public class AuthorizationServerConfig {
             try {
                 // Find the primary key (the one with private key for signing)
                 String primaryKeyId = keysService.getPrimaryKeyId();
-                for (com.nimbusds.jose.jwk.JWK jwk : candidateKeys) {
+                for (JWK jwk : candidateKeys) {
                     if (primaryKeyId.equals(jwk.getKeyID()) && jwk instanceof ECKey) {
                         ECKey ecKey = (ECKey) jwk;
                         // Only return keys that have private key (can sign)
@@ -212,7 +221,7 @@ public class AuthorizationServerConfig {
                 }
                 
                 // Fallback: return the first key with private key
-                for (com.nimbusds.jose.jwk.JWK jwk : candidateKeys) {
+                for (JWK jwk : candidateKeys) {
                     if (jwk instanceof ECKey) {
                         ECKey ecKey = (ECKey) jwk;
                         if (ecKey.isPrivate()) {
@@ -252,11 +261,11 @@ public class AuthorizationServerConfig {
             // Build x5c certificate chain dynamically
             try {
                 String primaryKeyName = keysService.getPrimaryKeyName();
-                java.util.List<String> certificateChain = keysService.getCertificateChain(primaryKeyName);
+                List<String> certificateChain = keysService.getCertificateChain(primaryKeyName);
                 
                 if (!certificateChain.isEmpty()) {
                     // Convert PEM certificates to Base64 DER format for x5c header
-                    java.util.List<String> x5cChain = new java.util.ArrayList<>();
+                    List<String> x5cChain = new ArrayList<>();
                     
                     for (String certPem : certificateChain) {
                         try {
