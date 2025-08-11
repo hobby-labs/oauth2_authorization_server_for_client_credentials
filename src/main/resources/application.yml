@@ -27,4 +27,3 @@ logging:
           actuate: WARN
       apache:
         catalina: WARN
-      hibernate: WARN
