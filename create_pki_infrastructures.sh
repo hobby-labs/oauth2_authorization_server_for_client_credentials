@@ -169,7 +169,7 @@ EOF
     cd ${ca_dir}
     openssl ca -batch -config openssl.cnf -in ${work_dir}/csr/intermediate-ca.csr \
         -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -out ${work_dir}/certs/intermediate-ca.cert.pem
-    cat ${work_dir}/certs/intermediate-ca.pem certs/root-ca.cert.pem > ${work_dir}/certs/ca-chain.cert.pem
+    cat ${work_dir}/certs/intermediate-ca.cert.pem certs/root-ca.cert.pem > ${work_dir}/certs/ca-chain.cert.pem
 }
 
 create_ee() {

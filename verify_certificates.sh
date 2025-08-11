@@ -116,7 +116,7 @@ for intermediate in trent pat; do
     for ee_dir in "${EE}"/*; do
         if [[ -d "$ee_dir" ]]; then
             ee_name=$(basename "$ee_dir")
-            ee_cert="${ee_dir}/certs/${ee_name}.ee.example.com.cert.cert.pem"
+            ee_cert="${ee_dir}/certs/${ee_name}.ee.example.com.cert.pem"
             
             if [[ -f "$ee_cert" ]]; then
                 show_chain_structure "$ee_cert" 2 "      "
