@@ -8,3 +8,8 @@ spring:
         jwt:
           jws-algorithms: RS512
           jwk-set-uri: https://idp.example.org/.well-known/jwks.json
+  profiles:
+    active: ${logappender:console}
+
+# Logging Configuration
+logappender: console  # Options: console, file

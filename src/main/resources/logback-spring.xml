@@ -33,10 +33,25 @@
     <logger name="org.apache.catalina" level="WARN"/>
     <logger name="org.hibernate" level="WARN"/>
 
-    <!-- Root logger -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-    </root>
+    <!-- Console logging (when console profile is active) -->
+    <springProfile name="console">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <!-- File logging (when file profile is active) -->
+    <springProfile name="file">
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- Default logging (fallback when no specific profile matches) -->
+    <springProfile name="default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
 
 </configuration>
