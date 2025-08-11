@@ -83,7 +83,7 @@ keys:
 
 # Configuration for key usage
 config:
-  primary-key: "alice"  # Which key to use as primary
+  primary-key: "charlie"  # Which key to use as primary
 
 chains:
   pat:

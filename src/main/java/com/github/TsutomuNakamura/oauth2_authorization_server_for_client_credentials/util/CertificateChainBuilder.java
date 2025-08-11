@@ -197,4 +197,149 @@ public class CertificateChainBuilder {
         
         return null; // CN not found
     }
+    
+    /**
+     * Extracts the Authority Key Identifier (AKI) from a PEM certificate.
+     * 
+     * <p>The Authority Key Identifier extension provides a means of identifying 
+     * the public key corresponding to the private key used to sign a certificate.
+     * This is the preferred method for certificate chain building as defined in RFC 5280.</p>
+     * 
+     * @param pemCertificate the PEM-encoded certificate
+     * @return the Authority Key Identifier as a hex string or null if not found
+     * @throws Exception if certificate cannot be parsed
+     */
+    public static String extractAuthorityKeyIdentifier(String pemCertificate) throws Exception {
+        if (pemCertificate == null || pemCertificate.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Parse the PEM certificate to X509Certificate
+        byte[] certificateBytes = pemCertificate.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
+        
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        
+        // Get the Authority Key Identifier extension (OID: 2.5.29.35)
+        byte[] akiBytes = certificate.getExtensionValue("2.5.29.35");
+        if (akiBytes == null) {
+            return null;
+        }
+        
+        // The extension value is DER-encoded OCTET STRING containing the actual extension
+        // We need to parse it to get the key identifier
+        return parseKeyIdentifierFromExtension(akiBytes);
+    }
+    
+    /**
+     * Extracts the Subject Key Identifier (SKI) from a PEM certificate.
+     * 
+     * <p>The Subject Key Identifier extension provides a means of identifying 
+     * certificates that contain the same subject public key. This is used to
+     * match certificates in a chain as defined in RFC 5280.</p>
+     * 
+     * @param pemCertificate the PEM-encoded certificate
+     * @return the Subject Key Identifier as a hex string or null if not found
+     * @throws Exception if certificate cannot be parsed
+     */
+    public static String extractSubjectKeyIdentifier(String pemCertificate) throws Exception {
+        if (pemCertificate == null || pemCertificate.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Parse the PEM certificate to X509Certificate
+        byte[] certificateBytes = pemCertificate.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
+        
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        
+        // Get the Subject Key Identifier extension (OID: 2.5.29.14)
+        byte[] skiBytes = certificate.getExtensionValue("2.5.29.14");
+        if (skiBytes == null) {
+            return null;
+        }
+        
+        // The extension value is DER-encoded OCTET STRING containing the actual extension
+        return parseKeyIdentifierFromExtension(skiBytes);
+    }
+    
+    /**
+     * Parses a key identifier from an X.509 extension value.
+     * 
+     * <p>X.509 extension values are DER-encoded OCTET STRINGs. For key identifier
+     * extensions, the content is typically another OCTET STRING containing the
+     * actual key identifier bytes.</p>
+     * 
+     * @param extensionBytes the DER-encoded extension value
+     * @return the key identifier as a hex string or null if parsing fails
+     */
+    private static String parseKeyIdentifierFromExtension(byte[] extensionBytes) {
+        try {
+            // Skip the outer OCTET STRING wrapper (tag + length)
+            int offset = 0;
+            if (extensionBytes[offset] == 0x04) { // OCTET STRING tag
+                offset++;
+                int length = extensionBytes[offset] & 0xFF;
+                offset++;
+                if ((length & 0x80) != 0) {
+                    // Long form length
+                    int lengthBytes = length & 0x7F;
+                    offset += lengthBytes;
+                }
+            }
+            
+            // For Authority Key Identifier, we may have a SEQUENCE containing the key ID
+            // For Subject Key Identifier, it's usually just the OCTET STRING with the ID
+            if (extensionBytes[offset] == 0x30) { // SEQUENCE tag (for AKI)
+                offset++;
+                int length = extensionBytes[offset] & 0xFF;
+                offset++;
+                if ((length & 0x80) != 0) {
+                    int lengthBytes = length & 0x7F;
+                    offset += lengthBytes;
+                }
+                
+                // Look for key identifier tag (context-specific [0])
+                if (extensionBytes[offset] == (byte) 0x80) {
+                    offset++;
+                    int keyIdLength = extensionBytes[offset] & 0xFF;
+                    offset++;
+                    
+                    // Extract the key identifier bytes
+                    byte[] keyIdBytes = new byte[keyIdLength];
+                    System.arraycopy(extensionBytes, offset, keyIdBytes, 0, keyIdLength);
+                    return bytesToHex(keyIdBytes);
+                }
+            } else if (extensionBytes[offset] == 0x04) { // OCTET STRING tag (for SKI)
+                offset++;
+                int keyIdLength = extensionBytes[offset] & 0xFF;
+                offset++;
+                
+                // Extract the key identifier bytes
+                byte[] keyIdBytes = new byte[keyIdLength];
+                System.arraycopy(extensionBytes, offset, keyIdBytes, 0, keyIdLength);
+                return bytesToHex(keyIdBytes);
+            }
+            
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Converts a byte array to a hexadecimal string.
+     * 
+     * @param bytes the byte array to convert
+     * @return the hexadecimal representation (lowercase)
+     */
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder();
+        for (byte b : bytes) {
+            hex.append(String.format("%02x", b & 0xFF));
+        }
+        return hex.toString();
+    }
 }
