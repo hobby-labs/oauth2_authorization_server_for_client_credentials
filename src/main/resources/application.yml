@@ -8,8 +8,23 @@ spring:
         jwt:
           jws-algorithms: RS512
           jwk-set-uri: https://idp.example.org/.well-known/jwks.json
-  profiles:
-    active: ${logappender:console}
 
-# Logging Configuration
-logappender: console  # Options: console, file
+# Clear, explicit logging configuration
+logging:
+  appender:
+    target: console  # Options: console, file
+  level:
+    com:
+      github:
+        TsutomuNakamura:
+          '[oauth2_authorization_server_for_client_credentials]': INFO
+    org:
+      springframework:
+        security:
+          oauth2: INFO
+        web: WARN
+        boot:
+          actuate: WARN
+      apache:
+        catalina: WARN
+      hibernate: WARN

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- Read the logging target property directly from application.yml -->
+    <springProperty scope="context" name="logTarget" source="logging.appender.target" defaultValue="console"/>
+    
     <!-- Simple console appender with standard pattern -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
@@ -33,25 +36,20 @@
     <logger name="org.apache.catalina" level="WARN"/>
     <logger name="org.hibernate" level="WARN"/>
 
-    <!-- Console logging (when console profile is active) -->
-    <springProfile name="console">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
-
-    <!-- File logging (when file profile is active) -->
-    <springProfile name="file">
-        <root level="INFO">
-            <appender-ref ref="FILE"/>
-        </root>
-    </springProfile>
-
-    <!-- Default logging (fallback when no specific profile matches) -->
-    <springProfile name="default">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
+    <!-- Conditional root logger based on logging.appender.target property -->
+    <if condition='property("logTarget").equals("console")'>
+        <then>
+            <!-- Console logging -->
+            <root level="INFO">
+                <appender-ref ref="CONSOLE"/>
+            </root>
+        </then>
+        <else>
+            <!-- File logging (when target is "file" or any other value) -->
+            <root level="INFO">
+                <appender-ref ref="FILE"/>
+            </root>
+        </else>
+    </if>
 
 </configuration>

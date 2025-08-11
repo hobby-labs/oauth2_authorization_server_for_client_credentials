@@ -1,84 +1,229 @@
-# Logging Configuration Guide
+# OAuth2 Authorization Server - Logging Configuration Guide
 
-This application supports flexible logging configuration through the `logappender` parameter in `application.yml`.
+## Overview
 
-## Configuration Options
+This OAuth2 Authorization Server uses SLF4J with Logback for comprehensive logging. The logging system provides flexible console/file output switching through transparent property-based configuration.
 
-### Console Logging (Development)
+## Key Features
+
+- **SLF4J Integration**: All application logging uses SLF4J with parameterized messages for performance
+- **Flexible Output**: Switch between console and file logging via simple property change
+- **Transparent Configuration**: Direct property mapping without opaque Spring profile pollution
+- **Production Ready**: File logging includes rotation, compression, and retention policies
+- **Performance Optimized**: Parameterized logging prevents string concatenation when log level is disabled
+
+## Configuration
+
+### Basic Setup
+
+Configure logging behavior in `application.yml`:
+
 ```yaml
-logappender: console
+logging:
+  appender:
+    target: console  # Options: console, file
+  level:
+    com:
+      github:
+        TsutomuNakamura:
+          '[oauth2_authorization_server_for_client_credentials]': INFO
+    org:
+      springframework:
+        security:
+          oauth2: INFO
 ```
-- Logs are displayed in the console/terminal
-- Useful for development and debugging
-- Real-time log viewing
 
-### File Logging (Production)
+### Console Logging
+
+Set `logging.appender.target: console` for development and debugging:
+
 ```yaml
-logappender: file
+logging:
+  appender:
+    target: console
 ```
-- Logs are written to `logs/oauth2-server.log`
-- File rotation enabled (10MB max size, 30 days retention, 1GB total cap)
-- Useful for production environments
-- Persistent log storage
 
-## How It Works
+**Characteristics:**
+- Real-time log output to terminal
+- Colored output for better readability
+- Immediate feedback during development
+- Pattern: `%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n`
 
-1. The `logappender` property in `application.yml` sets the active Spring profile
-2. Logback configuration (`logback-spring.xml`) uses Spring profiles to conditionally configure appenders:
-   - `console` profile: activates console appender
-   - `file` profile: activates file appender
-3. All other logging configurations (levels, patterns, etc.) remain in the Logback XML file
+### File Logging
 
-## Usage Examples
+Set `logging.appender.target: file` for production deployments:
 
-### Switch to Console Logging
-Edit `application.yml`:
 ```yaml
-logappender: console
+logging:
+  appender:
+    target: file
 ```
-Restart the application to see logs in console.
 
-### Switch to File Logging  
-Edit `application.yml`:
-```yaml
-logappender: file
+**Characteristics:**
+- Logs written to `logs/oauth2-server.log`
+- Automatic file rotation at 10MB
+- Keeps 30 days of history
+- Compressed archived files (.gz)
+- Pattern: `%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n`
+
+## Implementation Details
+
+### SLF4J Logger Usage
+
+The application uses parameterized logging for optimal performance:
+
+```java
+// Correct - parameterized logging
+log.info("Registered client '{}' ({}) with scopes: {}, TTL: {}min", 
+         clientId, displayName, scopes, ttlMinutes);
+
+// Avoided - string concatenation
+log.info("Registered client '" + clientId + "' with scopes: " + scopes);
 ```
-Restart the application. Logs will be written to `logs/oauth2-server.log`.
 
-### View File Logs
+### Logback Configuration
+
+The `logback-spring.xml` uses Janino conditional expressions for transparent behavior:
+
+```xml
+<if condition='property("logging.appender.target").equals("console")'>
+    <then>
+        <appender-ref ref="CONSOLE"/>
+    </then>
+</if>
+<if condition='property("logging.appender.target").equals("file")'>
+    <then>
+        <appender-ref ref="FILE"/>
+    </then>
+</if>
+```
+
+## Log Levels and Content
+
+### Application Logs (INFO Level)
+
+- OAuth2 client registration details
+- JWT key loading and rotation status
+- Security filter chain initialization
+- Token introspection configuration
+- Primary key and algorithm information
+
+### Security Logs (INFO/DEBUG Level)
+
+- OAuth2 authentication flows
+- Security filter processing
+- JWT token validation details
+
+### Framework Logs (WARN Level)
+
+- Spring Boot actuator warnings
+- Apache Catalina container logs
+- Hibernate ORM warnings
+
+## Switching Between Modes
+
+### Development Mode (Console Logging)
+
+1. Edit `src/main/resources/application.yml`
+2. Set `logging.appender.target: console`
+3. Restart the application
+4. View logs in terminal output
+
+### Production Mode (File Logging)
+
+1. Edit `src/main/resources/application.yml`
+2. Set `logging.appender.target: file`
+3. Restart the application
+4. Monitor logs at `logs/oauth2-server.log`
+
+## Dependencies
+
+### Required Dependencies
+
+The logging system requires these Maven dependencies:
+
+```xml
+<!-- SLF4J (included with Spring Boot) -->
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-logging</artifactId>
+</dependency>
+
+<!-- Janino for Logback conditionals -->
+<dependency>
+    <groupId>org.codehaus.janino</groupId>
+    <artifactId>janino</artifactId>
+</dependency>
+```
+
+## Best Practices
+
+### Performance Considerations
+
+1. **Use Parameterized Logging**: Always use `{}` placeholders instead of string concatenation
+2. **Appropriate Log Levels**: Use INFO for business logic, DEBUG for detailed flow, ERROR for exceptions
+3. **Avoid Expensive Operations**: Don't call expensive methods in log statements at inappropriate levels
+
+### Production Deployment
+
+1. **Set File Logging**: Use `logging.appender.target: file` for production
+2. **Monitor Disk Space**: File rotation prevents unbounded growth but monitor `logs/` directory
+3. **Log Level Optimization**: Consider reducing verbose framework logging in production
+4. **Security**: Ensure log files don't contain sensitive information
+
+### Development Workflow
+
+1. **Console for Development**: Use `logging.appender.target: console` during development
+2. **Test Both Modes**: Verify both console and file logging work before deployment
+3. **Log Message Quality**: Write clear, informative log messages with sufficient context
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: No log output visible**
+- Check `logging.appender.target` value in `application.yml`
+- Verify log level settings allow the messages to appear
+- Ensure Janino dependency is present for conditional processing
+
+**Issue: File not being created**
+- Verify `logs/` directory permissions
+- Check if `logging.appender.target` is set to `"file"`
+- Confirm application has write access to the working directory
+
+**Issue: Poor performance**
+- Avoid string concatenation in log statements
+- Use parameterized logging with `{}` placeholders
+- Check if DEBUG level is enabled inappropriately in production
+
+### Verification Commands
+
 ```bash
-# View latest log entries
+# Check current log file
 tail -f logs/oauth2-server.log
 
-# View last 50 lines
-tail -50 logs/oauth2-server.log
+# Monitor file rotation
+ls -la logs/
 
-# Search logs
-grep "ERROR" logs/oauth2-server.log
+# Verify console output
+./mvnw spring-boot:run | grep "AuthorizationServerConfig"
 ```
 
-## File Rotation Settings
+## Architecture Benefits
 
-When using file logging:
-- **Max file size**: 10MB
-- **Max history**: 30 days  
-- **Total size cap**: 1GB
-- **Compression**: Old files are gzipped
-- **Pattern**: `logs/oauth2-server.YYYY-MM-DD.i.log.gz`
+### Transparency
+- No opaque Spring profile pollution
+- Direct property-to-behavior mapping
+- Clear configuration without hidden magic
 
-## Log Levels
+### Maintainability
+- Single property controls logging destination
+- Consistent logging patterns across application
+- Easy switching between development and production modes
 
-Current log levels are configured in `logback-spring.xml`:
-- Application classes: INFO
-- Spring Security OAuth2: INFO
-- Spring Web: WARN
-- Apache Catalina: WARN
-- Hibernate: WARN
+### Performance
+- Parameterized logging prevents unnecessary string operations
+- Conditional appender selection avoids runtime overhead
+- Efficient file rotation and compression
 
-## Benefits
-
-1. **Easy switching**: Change one property to switch output destination
-2. **Environment-specific**: Use console for dev, file for production
-3. **No code changes**: Pure configuration-based
-4. **Centralized**: All other logging config stays in Logback XML
-5. **Production-ready**: File rotation and compression included
+This logging system provides a robust, transparent, and maintainable solution for both development and production environments.
