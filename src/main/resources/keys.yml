@@ -13,6 +13,14 @@ keys:
       uo8RDu9a9MzqWFc8Pw5y6ySE5gGhRANCAAQUd3SadD1hR0WKn3FssQw9IC/Olexb
       CDFCcneMiatm4M6D0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEO
       -----END PRIVATE KEY-----
+
+    # Certificate:  alice
+    # Subject: CN=alice.ee.example.com
+    # Issuer: CN=trent.interm.example.com
+    # X509v3 Subject Key Identifier: E2:4D:E6:9B:B7:9E:4B:B4:9B:57:CB:7F:30:FE:A1:8B:01:CC:95:80
+    # X509v3 Authority Key Identifier: B0:63:B6:6F:27:AF:2B:A0:67:ED:6D:B7:9B:07:AE:65:47:9D:65:DA
+    # Not Before: Aug 11 03:29:40 2025 GMT
+    # Not After : Aug 11 03:29:40 2027 GMT
     public: |
       -----BEGIN CERTIFICATE-----
       MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
@@ -27,7 +35,6 @@ keys:
       bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
       uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
       -----END CERTIFICATE-----
-
     keyId: "ec-key-from-yaml"
     algorithm: "ES256"
     curve: "P-256"
@@ -40,6 +47,14 @@ keys:
       42A8GnIbSYYuW75sAwXOEBK0Ij+hRANCAATEa8CFI+wMQnEedjOVZUyMi/GOMUSs
       hfE3vebRtblWcU5Zus6XKjq8Gi4dvq0DHQKJ1/yjDjLMVNe73iP1nInM
       -----END PRIVATE KEY-----
+
+    # Certificate: bob
+    # Subject: CN=bob.ee.example.com
+    # Issuer: CN=trent.interm.example.com
+    # X509v3 Subject Key Identifier: D3:44:04:49:15:BD:50:2B:A7:40:FC:1D:32:9D:E5:1E:46:D9:9F:89
+    # X509v3 Authority Key Identifier: B0:63:B6:6F:27:AF:2B:A0:67:ED:6D:B7:9B:07:AE:65:47:9D:65:DA
+    # Not Before: Aug 11 03:29:40 2025 GMT
+    # Not After : Aug 11 03:29:40 2027 GMT
     public: |
       -----BEGIN CERTIFICATE-----
       MIIBxDCCAUugAwIBAgICIAAwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
@@ -64,6 +79,14 @@ keys:
       m2XGgiufgKeGPCDt7LjDac1DSnuhRANCAAS3eprPrw+FXBo4yYYsj+08YBXaHBHx
       ufLUU5eG9vuApkQZrKSKAmLRlOSgolaN8pqD5ZFVPTFXV1hHoy9EvHki
       -----END PRIVATE KEY-----
+    
+    # Certificate: charlie
+    # Subject: CN=charlie.ee.example.com
+    # Issuer: CN=pat.interm.example.com
+    # X509v3 Subject Key Identifier: 77:62:76:11:67:B3:8B:BA:63:37:CC:E8:22:64:C9:AE:E5:82:D8:43
+    # X509v3 Authority Key Identifier: 74:69:66:8F:9B:5D:76:F6:11:0D:F7:56:7C:88:7A:29:56:0F:A1:14
+    # Not Before: Aug 11 03:29:40 2025 GMT
+    # Not After : Aug 11 03:29:40 2027 GMT
     public: |
       -----BEGIN CERTIFICATE-----
       MIIBxzCCAU2gAwIBAgICIAAwCgYIKoZIzj0EAwIwITEfMB0GA1UEAwwWcGF0Lmlu
@@ -87,6 +110,13 @@ config:
 
 chains:
   pat:
+    # Certificate chain: pat
+    # Subject: CN=pat.interm.example.com
+    # Issuer: CN=ivan.ca.example.com
+    # X509v3 Subject Key Identifier: 74:69:66:8F:9B:5D:76:F6:11:0D:F7:56:7C:88:7A:29:56:0F:A1:14
+    # X509v3 Authority Key Identifier: 99:76:78:09:21:A8:46:1E:81:41:79:14:F4:53:B3:36:9D:46:31:F7
+    # Not Before: Aug 11 03:29:40 2025 GMT
+    # Not After : Aug  9 03:29:40 2035 GMT
     public: |
       -----BEGIN CERTIFICATE-----
       MIIB0TCCAVigAwIBAgICEAEwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
@@ -100,8 +130,22 @@ chains:
       xeIqbEDY97/ThriIHKvFx3dgAbDj2kkhBai7l5EeRUiwV2QCMEHVldO+oEpw9+WH
       7FPuUGRHguuaZFuzEktQfza3gY+sGMaJbRhV3jL5mw/kzEjTgw==
       -----END CERTIFICATE-----
+    #private: |
+    #  -----BEGIN PRIVATE KEY-----
+    #  MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDCRji/WhZGaIdX0W7Se
+    #  5Rlc75AezHGC4RZxHvGvZ+Qgw3w/cXFIZ6tnHUWTF/VrzjKhZANiAASpCuslO0Wh
+    #  4+nYJfW9R/q6XrljZGQ31wG6vaPsXh6nRO91v8+XnHlmf09D9TdxlGM0RgQ78BQH
+    #  JMv0+yi+skP7BfUzL8OeNNccBqfM5Zu0HmSwkDIk63UqwWhNl9zN9fs=
+    #  -----END PRIVATE KEY-----
 
   trent:
+    # Certificate chain:  trent
+    # Subject: CN=trent.interm.example.com
+    # Issuer: CN=ivan.ca.example.com
+    # X509v3 Subject Key Identifier: B0:63:B6:6F:27:AF:2B:A0:67:ED:6D:B7:9B:07:AE:65:47:9D:65:DA
+    # X509v3 Authority Key Identifier: 99:76:78:09:21:A8:46:1E:81:41:79:14:F4:53:B3:36:9D:46:31:F7
+    # Not Before: Aug 11 03:29:40 2025 GMT
+    # Not After : Aug  9 03:29:40 2035 GMT
     public: |
       -----BEGIN CERTIFICATE-----
       MIIB0zCCAVqgAwIBAgICEAAwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
@@ -115,3 +159,43 @@ chains:
       Mr5d9/fTIPrIum8U/CGC/NVbsE7odQndftabkCaeXAE8s2VCqwIwS28/LNZblMs/
       QvfYwtRLaVz3Mt3P4eGuDW0KTHa+hK/Znn5qXfDSQrRMqJBjJTEg
       -----END CERTIFICATE-----
+    #private: |
+    #  -----BEGIN PRIVATE KEY-----
+    #  MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDDaKUQuQ5yzWsARasw5
+    #  21QNOPvn4aX7IsdP+OiiwT87mfip5QM9yaGWuormqGrb5QKhZANiAASW3bnE47eL
+    #  8kUDyBUFL7PeoIia+H3Am3E02h146kAKhSkNCTbGGF72JiP2sfGUrrv2O49XNXW3
+    #  tXws666ZSXRuhKRwtuo7WjPBNMXOzbHzPO5KxBZ9qcfiel/Ge3YPc8c=
+    #  -----END PRIVATE KEY-----
+
+# root:
+#   ca:
+#     # Certificate root: ivan
+#     # Subject: CN=ivan.ca.example.com
+#     # Issuer: CN=ivan.ca.example.com
+#     # X509v3 Subject Key Identifier: 99:76:78:09:21:A8:46:1E:81:41:79:14:F4:53:B3:36:9D:46:31:F7
+#     # X509v3 Authority Key Identifier: 99:76:78:09:21:A8:46:1E:81:41:79:14:F4:53:B3:36:9D:46:31:F7
+#     # Not Before: Aug 11 03:29:40 2025 GMT
+#     # Not After : Aug  5 03:29:40 2050 GMT
+#     public: |
+#       -----BEGIN CERTIFICATE-----
+#       MIIB5DCCAWmgAwIBAgIUcqOGYm0IxIFlD68ws74EeRvhVS8wCgYIKoZIzj0EAwIw
+#       HjEcMBoGA1UEAwwTaXZhbi5jYS5leGFtcGxlLmNvbTAgFw0yNTA4MTEwMzI5NDBa
+#       GA8yMDUwMDgwNTAzMjk0MFowHjEcMBoGA1UEAwwTaXZhbi5jYS5leGFtcGxlLmNv
+#       bTB2MBAGByqGSM49AgEGBSuBBAAiA2IABKUFAcqa/XTyCb6b5VRQSohYCIdvpnDG
+#       b7J6h6yH8RztwNmgTnk7XeRPx6pV+OAE1IOXdDkD6NN8S8Mi+CzLtfpuUTlmu7ei
+#       DUhsck8WeGrgagq8GIHoiBpoULbLY0HnKqNmMGQwHQYDVR0OBBYEFJl2eAkhqEYe
+#       gUF5FPRTszadRjH3MB8GA1UdIwQYMBaAFJl2eAkhqEYegUF5FPRTszadRjH3MBIG
+#       A1UdEwEB/wQIMAYBAf8CAQEwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA2kA
+#       MGYCMQDMut603vDsZtRX6JGmhrPExtHfSfSK+IaTqF8i9UKL4iwtCF3qd5mwSgFV
+#       JYzkUdwCMQDLT4EciDMnx044HGCRRdD+i19ttT3R/cO0sNNTiAZdV2RSbx2olTp5
+#       tR3C2jafFSk=
+#       -----END CERTIFICATE-----
+#     private: |
+#       -----BEGIN PRIVATE KEY-----
+#       MIG2AgEAMBAGByqGSM49AgEGBSuBBAAiBIGeMIGbAgEBBDApM/f5IdxIzcnqoHKn
+#       y20kC5gudgisvBp8aBfXvs+69NipMdLWhHvaF0xWB5jgkVyhZANiAASlBQHKmv10
+#       8gm+m+VUUEqIWAiHb6Zwxm+yeoesh/Ec7cDZoE55O13kT8eqVfjgBNSDl3Q5A+jT
+#       fEvDIvgsy7X6blE5Zru3og1IbHJPFnhq4GoKvBiB6IgaaFC2y2NB5yo=
+#       -----END PRIVATE KEY-----
+
+
