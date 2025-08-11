@@ -56,6 +56,12 @@ public class KeysService {
     /** The field name for curve type specification in key configurations. */
     private static final String CURVE_FIELD = "curve";
     
+    /** The field name for authority reference in key configurations. */
+    private static final String AUTHORITY_FIELD = "authority";
+    
+    /** The name of the chains section in the YAML file. */
+    private static final String CHAINS_SECTION = "chains";
+    
     /** The field name for private key PEM string in key configurations. */
     private static final String PRIVATE_KEY_FIELD = "private";
     
@@ -416,5 +422,95 @@ public class KeysService {
      */
     public String getKeyCurve(String keyName) {
         return getKeyAttribute(keyName, CURVE_FIELD, null);
+    }
+    
+    /**
+     * Retrieves the authority (issuing CA) for a specific key name.
+     * 
+     * <p>This returns the name of the certificate authority that issued the
+     * certificate for this key, which can be used to build certificate chains.</p>
+     * 
+     * @param keyName the name of the key to retrieve the authority for
+     * @return the authority name or null if not configured or key doesn't exist
+     */
+    public String getKeyAuthority(String keyName) {
+        return getKeyAttribute(keyName, AUTHORITY_FIELD, null);
+    }
+    
+    /**
+     * Retrieves the certificate chain for a given authority name.
+     * 
+     * <p>This returns the certificate (usually intermediate CA) from the chains
+     * section that can be used to build certificate chains for JWT x5c headers.</p>
+     * 
+     * @param authorityName the name of the authority/CA
+     * @return the certificate PEM string or null if not found
+     */
+    @SuppressWarnings("unchecked")
+    public String getChainCertificate(String authorityName) {
+        if (authorityName == null) {
+            return null;
+        }
+        
+        ensureConfigurationLoaded();
+        Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
+        if (chains == null) {
+            return null;
+        }
+        
+        Map<String, Object> chainData = (Map<String, Object>) chains.get(authorityName);
+        if (chainData == null) {
+            return null;
+        }
+        
+        return (String) chainData.get(PUBLIC_KEY_FIELD);
+    }
+    
+    /**
+     * Retrieves the public key PEM string for a specific key name.
+     * 
+     * <p>This method extracts the public key or certificate from the key configuration.</p>
+     * 
+     * @param keyName the name of the key to retrieve the public key for
+     * @return the public key PEM string or null if not found
+     */
+    public String getPublicKey(String keyName) {
+        try {
+            Map<String, Object> keyConfig = getKeyConfig(keyName);
+            return (String) keyConfig.get(PUBLIC_KEY_FIELD);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+    
+    /**
+     * Builds an X.509 certificate chain for the given key name.
+     * 
+     * <p>This method constructs the certificate chain by including the end-entity
+     * certificate and the intermediate CA certificate (if available) based on the
+     * authority reference. The chain is suitable for use in JWT x5c headers.</p>
+     * 
+     * @param keyName the name of the key to build the chain for
+     * @return List of certificate PEM strings [end-entity, intermediate] or empty list
+     */
+    public java.util.List<String> getCertificateChain(String keyName) {
+        java.util.List<String> chain = new java.util.ArrayList<>();
+        
+        // Get the end-entity certificate
+        String endEntityCert = getPublicKey(keyName);
+        if (endEntityCert != null && endEntityCert.contains("-----BEGIN CERTIFICATE-----")) {
+            chain.add(endEntityCert);
+            
+            // Get the intermediate certificate based on authority
+            String authority = getKeyAuthority(keyName);
+            if (authority != null) {
+                String intermediateCert = getChainCertificate(authority);
+                if (intermediateCert != null) {
+                    chain.add(intermediateCert);
+                }
+            }
+        }
+        
+        return chain;
     }
 }

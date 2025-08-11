@@ -11,6 +11,7 @@ import java.util.Map;
 public class KeysConfig {
     
     private Map<String, KeyPairConfig> keys;
+    private Map<String, ChainConfig> chains;
     private ConfigSection config;
     
     public Map<String, KeyPairConfig> getKeys() {
@@ -19,6 +20,14 @@ public class KeysConfig {
     
     public void setKeys(Map<String, KeyPairConfig> keys) {
         this.keys = keys;
+    }
+    
+    public Map<String, ChainConfig> getChains() {
+        return chains;
+    }
+    
+    public void setChains(Map<String, ChainConfig> chains) {
+        this.chains = chains;
     }
     
     public ConfigSection getConfig() {
@@ -35,6 +44,7 @@ public class KeysConfig {
         private String keyId;
         private String algorithm;
         private String curve;
+        private String authority;  // Reference to the CA that issued this certificate
         
         // Getters and setters with proper YAML mapping
         public String getPrivateKey() {
@@ -85,6 +95,31 @@ public class KeysConfig {
         
         public void setCurve(String curve) {
             this.curve = curve;
+        }
+        
+        public String getAuthority() {
+            return authority;
+        }
+        
+        public void setAuthority(String authority) {
+            this.authority = authority;
+        }
+    }
+    
+    public static class ChainConfig {
+        private String publicKey;  // The CA certificate
+        
+        public String getPublicKey() {
+            return publicKey;
+        }
+        
+        public void setPublicKey(String publicKey) {
+            this.publicKey = publicKey;
+        }
+        
+        // Map "public" from YAML to publicKey
+        public void setPublic(String publicKey) {
+            this.publicKey = publicKey;
         }
     }
     

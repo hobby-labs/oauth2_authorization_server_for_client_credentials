@@ -249,13 +249,36 @@ public class AuthorizationServerConfig {
             context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
             context.getJwsHeader().type("JWT");  // Add "typ": "JWT" to the header
             
-            // Option 1: Static certificate (replace with your actual certificate)
-            java.util.List<String> x5c = java.util.Arrays.asList(
-                "MIICdTCCAhugAwIBAgIJAOExample1...", // Your actual certificate in Base64 DER format
-                "MIICdTCCAhugAwIBAgIJAOExample2..."  // Optional: Additional certificates in the chain
-            );
-            
-            context.getJwsHeader().header("x5c", x5c);
+            // Build x5c certificate chain dynamically
+            try {
+                String primaryKeyName = keysService.getPrimaryKeyName();
+                java.util.List<String> certificateChain = keysService.getCertificateChain(primaryKeyName);
+                
+                if (!certificateChain.isEmpty()) {
+                    // Convert PEM certificates to Base64 DER format for x5c header
+                    java.util.List<String> x5cChain = new java.util.ArrayList<>();
+                    
+                    for (String certPem : certificateChain) {
+                        try {
+                            String derBase64 = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder
+                                .buildX5cChain(certPem).get(0);
+                            x5cChain.add(derBase64);
+                        } catch (Exception e) {
+                            System.err.println("Failed to convert certificate to DER format: " + e.getMessage());
+                        }
+                    }
+                    
+                    if (!x5cChain.isEmpty()) {
+                        context.getJwsHeader().header("x5c", x5cChain);
+                        System.out.println("Added x5c header with " + x5cChain.size() + " certificate(s)");
+                    }
+                } else {
+                    System.out.println("No certificate chain found for primary key: " + primaryKeyName);
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to build x5c certificate chain: " + e.getMessage());
+                // Continue without x5c header - JWT signing will still work
+            }
             
             // Customize JWT payload (claims)
             context.getClaims().claim("ver", "1");  // Add "ver": "1" to the payload
