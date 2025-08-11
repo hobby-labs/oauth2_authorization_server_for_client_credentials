@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.nimbusds.jose.jwk.JWK;
 
 import java.security.interfaces.ECPublicKey;
@@ -52,6 +55,8 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 @Configuration
 public class AuthorizationServerConfig {
     
+    private static final Logger logger = LoggerFactory.getLogger(AuthorizationServerConfig.class);
+    
     private final KeysService keysService;
     private final ClientsService clientsService;
     
@@ -74,21 +79,21 @@ public class AuthorizationServerConfig {
             .oauth2ResourceServer(resourceServer -> resourceServer
                 .jwt(Customizer.withDefaults()));
 
-        System.out.println("Authorization Server Security Filter Chain initialized");
+        logger.info("Authorization Server Security Filter Chain initialized");
         return http.build();
     }
 
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
-        System.out.println("Loading OAuth2 clients from YAML configuration...");
+        logger.info("Loading OAuth2 clients from YAML configuration...");
         
         List<RegisteredClient> clients = new ArrayList<>();
         Map<String, Object> allClients = clientsService.getAllClients();
         
         if (allClients.isEmpty()) {
-            System.err.println("ERROR: No clients found in configuration file!");
-            System.err.println("Please ensure clients.yml contains proper client entries.");
-            System.err.println("Application startup will be aborted.");
+            logger.error("ERROR: No clients found in configuration file!");
+            logger.error("Please ensure clients.yml contains proper client entries.");
+            logger.error("Application startup will be aborted.");
             throw new IllegalStateException("No OAuth2 clients configured in clients.yml. " +
                 "Application requires at least one client to be defined in the configuration file.");
         }
@@ -122,28 +127,29 @@ public class AuthorizationServerConfig {
                 RegisteredClient registeredClient = clientBuilder.build();
                 clients.add(registeredClient);
                 
-                System.out.println("Registered client '" + clientId + "' (" + displayName + ") with scopes: " + scopes + ", TTL: " + tokenTtl.toMinutes() + "min");
+                logger.info("Registered client '{}' ({}) with scopes: {}, TTL: {}min", 
+                    clientId, displayName, scopes, tokenTtl.toMinutes());
                 
             } catch (Exception e) {
-                System.err.println("Failed to register client '" + clientName + "': " + e.getMessage());
+                logger.error("Failed to register client '{}': {}", clientName, e.getMessage());
                 // Continue with other clients
             }
         }
         
-        System.out.println("Total registered clients: " + clients.size());
+        logger.info("Total registered clients: {}", clients.size());
         return new InMemoryRegisteredClientRepository(clients);
     }
 
     @Bean
     public JWKSource<SecurityContext> jwkSource() {
         try {
-            System.out.println("Loading EC keys from YAML configuration for key rotation...");
+            logger.info("Loading EC keys from YAML configuration for key rotation...");
             
             List<JWK> jwkList = new ArrayList<>();
             
             // Load all keys for rotation
             Set<String> allKeyNames = keysService.getAllKeyNames();
-            System.out.println("Loading multiple keys for rotation: " + allKeyNames);
+            logger.info("Loading multiple keys for rotation: {}", allKeyNames);
             
             for (String keyName : allKeyNames) {
                 try {
@@ -173,10 +179,10 @@ public class AuthorizationServerConfig {
                     ECKey ecKey = ecKeyBuilder.build();
                     jwkList.add(ecKey);
                     
-                    System.out.println("Loaded key: " + keyName + " (ID: " + keyId + ", Primary: " + isPrimary + ")");
+                    logger.info("Loaded key: {} (ID: {}, Primary: {})", keyName, keyId, isPrimary);
                     
                 } catch (Exception e) {
-                    System.err.println("Failed to load key: " + keyName + " - " + e.getMessage());
+                    logger.error("Failed to load key: {} - {}", keyName, e.getMessage());
                     // Continue loading other keys
                 }
             }
@@ -187,15 +193,14 @@ public class AuthorizationServerConfig {
             
             JWKSet jwkSet = new JWKSet(jwkList);
             
-            System.out.println("JWK Source initialized with " + jwkList.size() + " key(s)");
-            System.out.println("Primary key: " + keysService.getPrimaryKeyName());
-            System.out.println("Algorithm: ES256, Curve: P-256");
+            logger.info("JWK Source initialized with {} key(s)", jwkList.size());
+            logger.info("Primary key: {}", keysService.getPrimaryKeyName());
+            logger.info("Algorithm: ES256, Curve: P-256");
             
             return new ImmutableJWKSet<>(jwkSet);
             
         } catch (Exception e) {
-            System.err.println("Failed to load EC key pair from YAML: " + e.getMessage());
-            e.printStackTrace();
+            logger.error("Failed to load EC key pair from YAML: {}", e.getMessage(), e);
             throw new RuntimeException("Could not load keys from YAML configuration", e);
         }
     }
@@ -215,17 +220,17 @@ public class AuthorizationServerConfig {
                         ECKey ecKey = (ECKey) jwk;
                         // Only return keys that have private key (can sign)
                         if (ecKey.isPrivate()) {
-                            System.out.println("Selected primary key for signing: " + jwk.getKeyID());
+                            logger.debug("Selected primary key for signing: {}", jwk.getKeyID());
                             return jwk;
                         }
                     }
                 }
                 
-                System.err.println("Primary signing key '" + primaryKeyId + "' not found or not available for signing!");
+                logger.error("Primary signing key '{}' not found or not available for signing!", primaryKeyId);
                 throw new RuntimeException("Primary signing key '" + primaryKeyId + "' not found or not available for signing");
                 
             } catch (Exception e) {
-                System.err.println("Error selecting JWK for signing: " + e.getMessage());
+                logger.error("Error selecting JWK for signing: {}", e.getMessage());
                 throw new RuntimeException("Error selecting JWK for signing", e);
             }
         });
@@ -235,7 +240,7 @@ public class AuthorizationServerConfig {
 
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
-        System.out.println("Authorization Server Settings initialized with issuer: http://localhost:9000");
+        logger.info("Authorization Server Settings initialized with issuer: http://localhost:9000");
         return AuthorizationServerSettings.builder()
                 .issuer("http://localhost:9000")
                 .build();
@@ -261,19 +266,19 @@ public class AuthorizationServerConfig {
                         try {
                             String derBase64 = CertificateChainBuilder.buildX5cChain(certPem).get(0);x5cChain.add(derBase64);
                         } catch (Exception e) {
-                            System.err.println("Failed to convert certificate to DER format: " + e.getMessage());
+                            logger.error("Failed to convert certificate to DER format: {}", e.getMessage());
                         }
                     }
                     
                     if (!x5cChain.isEmpty()) {
                         context.getJwsHeader().header("x5c", x5cChain);
-                        System.out.println("Added x5c header with " + x5cChain.size() + " certificate(s)");
+                        logger.debug("Added x5c header with {} certificate(s)", x5cChain.size());
                     }
                 } else {
-                    System.out.println("No certificate chain found for primary key: " + primaryKeyName);
+                    logger.debug("No certificate chain found for primary key: {}", primaryKeyName);
                 }
             } catch (Exception e) {
-                System.err.println("Failed to build x5c certificate chain: " + e.getMessage());
+                logger.error("Failed to build x5c certificate chain: {}", e.getMessage());
                 // Continue without x5c header - JWT signing will still work
             }
             
@@ -295,7 +300,7 @@ public class AuthorizationServerConfig {
      */
     @Bean
     public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
-        System.out.println("Configuring JWT Decoder for token introspection");
+        logger.info("Configuring JWT Decoder for token introspection");
         return NimbusJwtDecoder.withJwkSetUri("http://localhost:9000/oauth2/jwks").build();
     }
 }
