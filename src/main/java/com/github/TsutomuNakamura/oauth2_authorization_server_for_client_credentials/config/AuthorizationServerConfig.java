@@ -220,19 +220,8 @@ public class AuthorizationServerConfig {
                     }
                 }
                 
-                // Fallback: return the first key with private key
-                for (JWK jwk : candidateKeys) {
-                    if (jwk instanceof ECKey) {
-                        ECKey ecKey = (ECKey) jwk;
-                        if (ecKey.isPrivate()) {
-                            System.out.println("Selected fallback key for signing: " + jwk.getKeyID());
-                            return jwk;
-                        }
-                    }
-                }
-                
-                System.err.println("No suitable signing key found!");
-                throw new RuntimeException("No suitable signing key found");
+                System.err.println("Primary signing key '" + primaryKeyId + "' not found or not available for signing!");
+                throw new RuntimeException("Primary signing key '" + primaryKeyId + "' not found or not available for signing");
                 
             } catch (Exception e) {
                 System.err.println("Error selecting JWK for signing: " + e.getMessage());
