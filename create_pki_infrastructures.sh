@@ -20,10 +20,10 @@ main() {
     # Create intermediate CA
     create_int "ivan" "trent"
     create_int "ivan" "pat"
-    # Create end-entities
-    create_ee "trent" "bob"
-    create_ee "trent" "alice"
-    create_ee "pat" "charlie"
+    # Create end-entities with different certificate types
+    create_ee "trent" "bob" "code_signing"       # Server + Client + Code signing
+    create_ee "trent" "alice" "multi_purpose"    # Server + Client + Code signing
+    create_ee "pat" "charlie" "code_signing"     # Code signing only
 }
 
 create_ca() {
@@ -49,8 +49,8 @@ new_certs_dir=\$dir/newcerts
 database=\$dir/index.txt
 serial=\$dir/serial
 crlnumber=\$dir/crlnumber
-certificate=\$dir/certs/root-ca.pem
-private_key=\$dir/private/root-ca.pem
+certificate=\$dir/certs/root-ca.cert.pem
+private_key=\$dir/private/root-ca.key.pem
 default_md=sha256
 default_days=9125
 unique_subject=no
@@ -81,9 +81,9 @@ authorityKeyIdentifier=keyid:always
 EOF
 
     cd ${work_dir}
-    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp384r1 -pkeyopt ec_param_enc:named_curve -out private/root-ca.pem
-    chmod 600 private/root-ca.pem
-    openssl req -config openssl.cnf -new -x509 -days 9125 -sha256 -key private/root-ca.pem -extensions v3_root_ca -out certs/root-ca.pem
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp384r1 -pkeyopt ec_param_enc:named_curve -out private/root-ca.key.pem
+    chmod 600 private/root-ca.key.pem
+    openssl req -config openssl.cnf -new -x509 -days 9125 -sha256 -key private/root-ca.key.pem -extensions v3_root_ca -out certs/root-ca.cert.pem
 }
 
 create_int() {
@@ -111,8 +111,8 @@ new_certs_dir=\$dir/newcerts
 database=\$dir/index.txt
 serial=\$dir/serial
 crlnumber=\$dir/crlnumber
-certificate=\$dir/certs/intermediate-ca.pem
-private_key=\$dir/private/intermediate-ca.pem
+certificate=\$dir/certs/intermediate-ca.cert.pem
+private_key=\$dir/private/intermediate-ca.key.pem
 default_md=sha256
 default_days=3650
 unique_subject=no
@@ -146,6 +146,13 @@ subjectKeyIdentifier=hash
 authorityKeyIdentifier=keyid,issuer
 keyUsage=critical,digitalSignature
 extendedKeyUsage=codeSigning
+[ ee_multi_purpose ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth,codeSigning
+subjectAltName=@alt_names
 [ crl_ext ]
 authorityKeyIdentifier=keyid:always
 [ alt_names ]
@@ -154,20 +161,21 @@ EOF
 
     cd ${work_dir}
     openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:secp384r1 \
-        -pkeyopt ec_param_enc:named_curve -out private/intermediate-ca.pem
-    chmod 600 private/intermediate-ca.pem
-    openssl req -config openssl.cnf -new -key private/intermediate-ca.pem -out csr/intermediate-ca.csr
+        -pkeyopt ec_param_enc:named_curve -out private/intermediate-ca.key.pem
+    chmod 600 private/intermediate-ca.key.pem
+    openssl req -config openssl.cnf -new -key private/intermediate-ca.key.pem -out csr/intermediate-ca.csr
 
     # Sign intermediate with root
     cd ${ca_dir}
     openssl ca -batch -config openssl.cnf -in ${work_dir}/csr/intermediate-ca.csr \
-        -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -out ${work_dir}/certs/intermediate-ca.pem
-    cat ${work_dir}/certs/intermediate-ca.pem certs/root-ca.pem > ${work_dir}/certs/ca-chain.pem
+        -extensions v3_intermediate_ca -days 3650 -notext -md sha256 -out ${work_dir}/certs/intermediate-ca.cert.pem
+    cat ${work_dir}/certs/intermediate-ca.pem certs/root-ca.cert.pem > ${work_dir}/certs/ca-chain.cert.pem
 }
 
 create_ee() {
     local int_name="$1"
     local name="$2"
+    local cert_type="${3:-server_client}"  # Default to server_client, options: server_client, code_signing, multi_purpose
 
     local work_dir="${SCRIPT_DIR}/${EE}/${name}"
     local int_dir="${SCRIPT_DIR}/${INT}/${int_name}"
@@ -178,13 +186,36 @@ create_ee() {
 
     cd ${int_dir}
     openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 \
-        -pkeyopt ec_param_enc:named_curve -out ${work_dir}/private/${name}.ee.example.com.pem
-    chmod 600 ${work_dir}/private/${name}.ee.example.com.pem
-    openssl req -new -sha256 -key ${work_dir}/private/${name}.ee.example.com.pem \
+        -pkeyopt ec_param_enc:named_curve -out ${work_dir}/private/${name}.ee.example.com.key.pem
+    chmod 600 ${work_dir}/private/${name}.ee.example.com.key.pem
+    openssl req -new -sha256 -key ${work_dir}/private/${name}.ee.example.com.key.pem \
         -out ${work_dir}/csr/${name}.ee.example.com.csr -subj "/CN=${name}.ee.example.com"
 
-    # SAN override file
-    cat > ee_san.cnf <<EOF
+    # Create SAN override file based on certificate type
+    if [[ "$cert_type" == "multi_purpose" ]]; then
+        cat > ee_san.cnf <<EOF
+[ ee_multi_purpose ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=serverAuth,clientAuth,codeSigning
+subjectAltName=DNS:${name}.ee.example.com
+EOF
+        extensions="ee_multi_purpose"
+    elif [[ "$cert_type" == "code_signing" ]]; then
+        cat > ee_san.cnf <<EOF
+[ ee_code_signing ]
+basicConstraints=critical,CA:false
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid,issuer
+keyUsage=critical,digitalSignature
+extendedKeyUsage=codeSigning
+EOF
+        extensions="ee_code_signing"
+    else
+        # Default: server_client
+        cat > ee_san.cnf <<EOF
 [ ee_server_client ]
 basicConstraints=critical,CA:false
 subjectKeyIdentifier=hash
@@ -193,15 +224,18 @@ keyUsage=critical,digitalSignature
 extendedKeyUsage=serverAuth,clientAuth
 subjectAltName=DNS:${name}.ee.example.com
 EOF
+        extensions="ee_server_client"
+    fi
 
-    # Sign end-entity (server+client)
+    # Sign end-entity certificate
     openssl ca -batch -config openssl.cnf -in ${work_dir}/csr/${name}.ee.example.com.csr \
-        -extensions ee_server_client -extfile ee_san.cnf -days 730 \
+        -extensions "$extensions" -extfile ee_san.cnf -days 730 \
         -notext -md sha256 -out ${work_dir}/certs/${name}.ee.example.com.cert.pem
 
     # Fullchain (server cert + intermediate)
-    cat ${work_dir}/certs/${name}.ee.example.com.cert.pem certs/intermediate-ca.pem > ${work_dir}/certs/${name}.ee.example.com.fullchain.cert.pem
+    cat ${work_dir}/certs/${name}.ee.example.com.cert.pem certs/intermediate-ca.cert.pem > ${work_dir}/certs/${name}.ee.example.com.fullchain.cert.pem
 
+    echo "Created ${cert_type} certificate for ${name}"
     return 0
 }
 
