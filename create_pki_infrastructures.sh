@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 #
-# ivan.ca.example.com   PKI infrastructure setup script
-#   |
-#   +-trent.
-#   
+# This script creates a PKI infrastructure with a root CA, two intermediate CAs, and several end-entity certificates for testing.
+# The structure is as follows:
+#
+# ivan.ca.example.com
+#     |
+#     +- trent.interm.example.com
+#     |   |
+#     |   +- alice.ee.example.com
+#     |   +- bob.ee.example.com
+#     |
+#     +- pat.interm.example.com
+#         |
+#         +- charlie.ee.example.com
+#
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 
