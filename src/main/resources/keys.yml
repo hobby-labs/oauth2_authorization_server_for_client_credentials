@@ -5,72 +5,116 @@ keys:
   # ✅ Backup Key (ec-backup-2025):
   # Has only "verify" operation
   # Available for verifying old tokens but not for signing new ones
-  ec:
+  alice:
     # EC P-256 key pair for JWT signing (ES256)
     private: |
       -----BEGIN PRIVATE KEY-----
-      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg0B5vUIKpkExxCzK7
-      T04vaa8CcA2EtzNtpx+MTiYAvAKhRANCAATmBYWiTLeavnUPScDRLpYS5ayut0dB
-      O3R8Fg2GgvnfeAqsm/WMSrw6cN6hNzSAWqWBEXBLzZxX7lGpYY9Qn2GO
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcED3Y6jFH7w7TXUl
+      uo8RDu9a9MzqWFc8Pw5y6ySE5gGhRANCAAQUd3SadD1hR0WKn3FssQw9IC/Olexb
+      CDFCcneMiatm4M6D0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEO
       -----END PRIVATE KEY-----
     public: |
-      -----BEGIN PUBLIC KEY-----
-      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE5gWFoky3mr51D0nA0S6WEuWsrrdH
-      QTt0fBYNhoL533gKrJv1jEq8OnDeoTc0gFqlgRFwS82cV+5RqWGPUJ9hjg==
-      -----END PUBLIC KEY-----
+      -----BEGIN CERTIFICATE-----
+      MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+      aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+      MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+      BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+      0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+      MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+      tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+      BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+      LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+      bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+      uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+      -----END CERTIFICATE-----
+
     keyId: "ec-key-from-yaml"
     algorithm: "ES256"
     curve: "P-256"
+    authority: "trent"
     
   # Backup key for rotation
-  ec-backup-01:
+  bob:
     private: |
       -----BEGIN PRIVATE KEY-----
-      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgxRdOxWpv+dv92jku
-      ss+zlqo9DCk/gOk1zemTBpVqEa6hRANCAAR+HX8TWHLXnuDGBpK8cWgUImLdKC5C
-      vw4t4zQ5ATKHtnupXTe1ntbEeXJKSCH3CcloXUW6d2ZbEuP06bDfHMLp
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgSXm+jWiG/BcUUEyy
+      42A8GnIbSYYuW75sAwXOEBK0Ij+hRANCAATEa8CFI+wMQnEedjOVZUyMi/GOMUSs
+      hfE3vebRtblWcU5Zus6XKjq8Gi4dvq0DHQKJ1/yjDjLMVNe73iP1nInM
       -----END PRIVATE KEY-----
     public: |
-      -----BEGIN PUBLIC KEY-----
-      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfh1/E1hy157gxgaSvHFoFCJi3Sgu
-      Qr8OLeM0OQEyh7Z7qV03tZ7WxHlySkgh9wnJaF1FundmWxLj9Omw3xzC6Q==
-      -----END PUBLIC KEY-----
+      -----BEGIN CERTIFICATE-----
+      MIIBxDCCAUugAwIBAgICIAAwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+      aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+      MFowHTEbMBkGA1UEAwwSYm9iLmVlLmV4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYI
+      KoZIzj0DAQcDQgAExGvAhSPsDEJxHnYzlWVMjIvxjjFErIXxN73m0bW5VnFOWbrO
+      lyo6vBouHb6tAx0Cidf8ow4yzFTXu94j9ZyJzKN1MHMwDAYDVR0TAQH/BAIwADAd
+      BgNVHQ4EFgQU00QESRW9UCunQPwdMp3lHkbZn4kwHwYDVR0jBBgwFoAUsGO2byev
+      K6Bn7W23mweuZUedZdowDgYDVR0PAQH/BAQDAgeAMBMGA1UdJQQMMAoGCCsGAQUF
+      BwMDMAoGCCqGSM49BAMCA2cAMGQCMA20qunHPy6nj20/ksuhN+KRJ3ro7a6+6vm6
+      n5NONwaeiV9Ole05PFZFfFPsXltxAQIwF2slV8bZCRftFGIAzKq9q+k7+QqldT6m
+      rHLjJNvpltmPK51CtskQJkf9cFfAo9+x
+      -----END CERTIFICATE-----
     keyId: "ec-backup-01"
     algorithm: "ES256"
     curve: "P-256"
+    authority: "trent"
 
-  ec-backup-02:
+  charlie:
     private: |
       -----BEGIN PRIVATE KEY-----
-      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg+y8O+UwBt7cdZ9pE
-      OimmJv7A0WGxzzKOOVAfXaloRROhRANCAASl9/jILDRd3bCvaiUtenkIv37aKGNe
-      78qQk2diLm0LFx+6OofwWjfzklROTxs2LwX+1U/uThTJAxoMqJC3L9mC
+      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcFVPsxIOqNWDLKQP
+      m2XGgiufgKeGPCDt7LjDac1DSnuhRANCAAS3eprPrw+FXBo4yYYsj+08YBXaHBHx
+      ufLUU5eG9vuApkQZrKSKAmLRlOSgolaN8pqD5ZFVPTFXV1hHoy9EvHki
       -----END PRIVATE KEY-----
     public: |
-      -----BEGIN PUBLIC KEY-----
-      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpff4yCw0Xd2wr2olLXp5CL9+2ihj
-      Xu/KkJNnYi5tCxcfujqH8Fo385JUTk8bNi8F/tVP7k4UyQMaDKiQty/Zgg==
-      -----END PUBLIC KEY-----
+      -----BEGIN CERTIFICATE-----
+      MIIBxzCCAU2gAwIBAgICIAAwCgYIKoZIzj0EAwIwITEfMB0GA1UEAwwWcGF0Lmlu
+      dGVybS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0yNzA4MTEwMzI5NDBa
+      MCExHzAdBgNVBAMMFmNoYXJsaWUuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+      BggqhkjOPQMBBwNCAAS3eprPrw+FXBo4yYYsj+08YBXaHBHxufLUU5eG9vuApkQZ
+      rKSKAmLRlOSgolaN8pqD5ZFVPTFXV1hHoy9EvHkio3UwczAMBgNVHRMBAf8EAjAA
+      MB0GA1UdDgQWBBR3YnYRZ7OLumM3zOgiZMmu5YLYQzAfBgNVHSMEGDAWgBR0aWaP
+      m1129hEN91Z8iHopVg+hFDAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYB
+      BQUHAwMwCgYIKoZIzj0EAwIDaAAwZQIwGb09RICF0EEXx2EF/aHc1mbHKJKAHplA
+      H3WoTwF7TaB7wE8R3Q163c89TR36z/5VAjEAvF/mAX/XIStUxOqpjGUxGHGq27Rv
+      u/iKZR+OlUE/La3un+eP6380FvZ8lcP2TrPE
+      -----END CERTIFICATE-----
     keyId: "ec-backup-02"
     algorithm: "ES256"
     curve: "P-256"
-
-  ec-backup-03:
-    private: |
-      -----BEGIN PRIVATE KEY-----
-      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgohTX65hma5Tw9x6A
-      6bF4CQmQzwxonCxs7VHlU1/lk32hRANCAASfZSgD0nRJ0KnXn1N6PNPknT6enhJd
-      o9nLqTRg2J4kybT5FUTOaQIlv2btRj06PJhd/+M8RsvkrYPIt2X3p+V2
-      -----END PRIVATE KEY-----
-    public: |
-      -----BEGIN PUBLIC KEY-----
-      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn2UoA9J0SdCp159TejzT5J0+np4S
-      XaPZy6k0YNieJMm0+RVEzmkCJb9m7UY9OjyYXf/jPEbL5K2DyLdl96fldg==
-      -----END PUBLIC KEY-----
-    keyId: "ec-backup-03"
-    algorithm: "ES256"
-    curve: "P-256"
+    authority: "pat"
 
 # Configuration for key usage
 config:
-  primary-key: "ec"  # Which key to use as primary
+  primary-key: "alice"  # Which key to use as primary
+
+chains:
+  pat:
+    public: |
+      -----BEGIN CERTIFICATE-----
+      MIIB0TCCAVigAwIBAgICEAEwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
+      YS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0zNTA4MDkwMzI5NDBaMCEx
+      HzAdBgNVBAMMFnBhdC5pbnRlcm0uZXhhbXBsZS5jb20wdjAQBgcqhkjOPQIBBgUr
+      gQQAIgNiAASpCuslO0Wh4+nYJfW9R/q6XrljZGQ31wG6vaPsXh6nRO91v8+XnHlm
+      f09D9TdxlGM0RgQ78BQHJMv0+yi+skP7BfUzL8OeNNccBqfM5Zu0HmSwkDIk63Uq
+      wWhNl9zN9fujZjBkMB0GA1UdDgQWBBR0aWaPm1129hEN91Z8iHopVg+hFDAfBgNV
+      HSMEGDAWgBSZdngJIahGHoFBeRT0U7M2nUYx9zASBgNVHRMBAf8ECDAGAQH/AgEA
+      MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNnADBkAjB7U0WJidEW3OW9SITJ
+      xeIqbEDY97/ThriIHKvFx3dgAbDj2kkhBai7l5EeRUiwV2QCMEHVldO+oEpw9+WH
+      7FPuUGRHguuaZFuzEktQfza3gY+sGMaJbRhV3jL5mw/kzEjTgw==
+      -----END CERTIFICATE-----
+
+  trent:
+    public: |
+      -----BEGIN CERTIFICATE-----
+      MIIB0zCCAVqgAwIBAgICEAAwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
+      YS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0zNTA4MDkwMzI5NDBaMCMx
+      ITAfBgNVBAMMGHRyZW50LmludGVybS5leGFtcGxlLmNvbTB2MBAGByqGSM49AgEG
+      BSuBBAAiA2IABJbducTjt4vyRQPIFQUvs96giJr4fcCbcTTaHXjqQAqFKQ0JNsYY
+      XvYmI/ax8ZSuu/Y7j1c1dbe1fCzrrplJdG6EpHC26jtaM8E0xc7NsfM87krEFn2p
+      x+J6X8Z7dg9zx6NmMGQwHQYDVR0OBBYEFLBjtm8nryugZ+1tt5sHrmVHnWXaMB8G
+      A1UdIwQYMBaAFJl2eAkhqEYegUF5FPRTszadRjH3MBIGA1UdEwEB/wQIMAYBAf8C
+      AQAwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA2cAMGQCMCGeK1WwMX0jmIK8
+      Mr5d9/fTIPrIum8U/CGC/NVbsE7odQndftabkCaeXAE8s2VCqwIwS28/LNZblMs/
+      QvfYwtRLaVz3Mt3P4eGuDW0KTHa+hK/Znn5qXfDSQrRMqJBjJTEg
+      -----END CERTIFICATE-----
