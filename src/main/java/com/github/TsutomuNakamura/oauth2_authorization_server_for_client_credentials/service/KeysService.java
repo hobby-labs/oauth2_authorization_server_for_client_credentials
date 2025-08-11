@@ -501,16 +501,80 @@ public class KeysService {
         if (endEntityCert != null && endEntityCert.contains("-----BEGIN CERTIFICATE-----")) {
             chain.add(endEntityCert);
             
-            // Get the intermediate certificate based on authority
+            // Try to get the intermediate certificate based on configured authority first
             String authority = getKeyAuthority(keyName);
             if (authority != null) {
                 String intermediateCert = getChainCertificate(authority);
                 if (intermediateCert != null) {
                     chain.add(intermediateCert);
                 }
+            } else {
+                // If no authority is configured, try to auto-detect it
+                String autoDetectedAuthority = autoDetectAuthority(endEntityCert);
+                if (autoDetectedAuthority != null) {
+                    String intermediateCert = getChainCertificate(autoDetectedAuthority);
+                    if (intermediateCert != null) {
+                        chain.add(intermediateCert);
+                    }
+                }
             }
         }
         
         return chain;
+    }
+    
+    /**
+     * Automatically detects the issuing authority for a certificate by comparing
+     * the certificate's issuer with available chain certificates.
+     * 
+     * <p>This method extracts the issuer Common Name from the certificate and
+     * attempts to match it with the subject Common Name of certificates in the
+     * chains section of the configuration.</p>
+     * 
+     * @param certificatePem the PEM-encoded certificate to analyze
+     * @return the name of the matching authority or null if no match found
+     */
+    @SuppressWarnings("unchecked")
+    private String autoDetectAuthority(String certificatePem) {
+        try {
+            // Extract the issuer CN from the certificate
+            String issuerCN = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractIssuerCN(certificatePem);
+            if (issuerCN == null) {
+                return null;
+            }
+            
+            // Get all available chains
+            ensureConfigurationLoaded();
+            Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
+            if (chains == null) {
+                return null;
+            }
+            
+            // Check each chain certificate to see if its subject matches the issuer
+            for (Map.Entry<String, Object> chainEntry : chains.entrySet()) {
+                String chainName = chainEntry.getKey();
+                Map<String, Object> chainData = (Map<String, Object>) chainEntry.getValue();
+                String chainCertPem = (String) chainData.get(PUBLIC_KEY_FIELD);
+                
+                if (chainCertPem != null) {
+                    try {
+                        String chainSubjectCN = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractSubjectCN(chainCertPem);
+                        if (issuerCN.equals(chainSubjectCN)) {
+                            System.out.println("Auto-detected authority '" + chainName + "' for certificate issued by: " + issuerCN);
+                            return chainName;
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error parsing chain certificate for " + chainName + ": " + e.getMessage());
+                    }
+                }
+            }
+            
+            System.out.println("No matching authority found for certificate issued by: " + issuerCN);
+            return null;
+            
+        } catch (Exception e) {
+            System.err.println("Error during authority auto-detection: " + e.getMessage());
+            return null;
+        }
     }
 }

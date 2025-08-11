@@ -121,4 +121,80 @@ public class CertificateChainBuilder {
             return false;
         }
     }
+    
+    /**
+     * Extracts the issuer Common Name (CN) from a PEM certificate.
+     * 
+     * <p>This method parses the certificate and extracts the CN field from the
+     * issuer's Distinguished Name. This is useful for automatically determining
+     * which intermediate CA issued a certificate.</p>
+     * 
+     * @param pemCertificate the PEM-encoded certificate
+     * @return the issuer's Common Name (CN) or null if not found
+     * @throws Exception if certificate cannot be parsed
+     */
+    public static String extractIssuerCN(String pemCertificate) throws Exception {
+        if (pemCertificate == null || pemCertificate.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Parse the PEM certificate to X509Certificate
+        byte[] certificateBytes = pemCertificate.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
+        
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        
+        // Get the issuer DN and extract CN
+        String issuerDN = certificate.getIssuerX500Principal().getName();
+        
+        // Parse CN from Distinguished Name (format: "CN=name, ...")
+        String[] dnComponents = issuerDN.split(",");
+        for (String component : dnComponents) {
+            String trimmed = component.trim();
+            if (trimmed.startsWith("CN=")) {
+                return trimmed.substring(3); // Remove "CN=" prefix
+            }
+        }
+        
+        return null; // CN not found
+    }
+    
+    /**
+     * Extracts the subject Common Name (CN) from a PEM certificate.
+     * 
+     * <p>This method parses the certificate and extracts the CN field from the
+     * subject's Distinguished Name. This is useful for matching certificates
+     * by their subject names.</p>
+     * 
+     * @param pemCertificate the PEM-encoded certificate
+     * @return the subject's Common Name (CN) or null if not found
+     * @throws Exception if certificate cannot be parsed
+     */
+    public static String extractSubjectCN(String pemCertificate) throws Exception {
+        if (pemCertificate == null || pemCertificate.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Parse the PEM certificate to X509Certificate
+        byte[] certificateBytes = pemCertificate.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
+        
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        
+        // Get the subject DN and extract CN
+        String subjectDN = certificate.getSubjectX500Principal().getName();
+        
+        // Parse CN from Distinguished Name (format: "CN=name, ...")
+        String[] dnComponents = subjectDN.split(",");
+        for (String component : dnComponents) {
+            String trimmed = component.trim();
+            if (trimmed.startsWith("CN=")) {
+                return trimmed.substring(3); // Remove "CN=" prefix
+            }
+        }
+        
+        return null; // CN not found
+    }
 }

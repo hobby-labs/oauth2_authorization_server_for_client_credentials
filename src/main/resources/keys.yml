@@ -31,7 +31,6 @@ keys:
     keyId: "ec-key-from-yaml"
     algorithm: "ES256"
     curve: "P-256"
-    authority: "trent"
     
   # Backup key for rotation
   bob:
@@ -57,7 +56,6 @@ keys:
     keyId: "ec-backup-01"
     algorithm: "ES256"
     curve: "P-256"
-    authority: "trent"
 
   charlie:
     private: |
@@ -82,7 +80,6 @@ keys:
     keyId: "ec-backup-02"
     algorithm: "ES256"
     curve: "P-256"
-    authority: "pat"
 
 # Configuration for key usage
 config:
