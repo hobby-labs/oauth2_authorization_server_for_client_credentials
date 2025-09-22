@@ -5,7 +5,7 @@ clients:
     client-secret: "mobile-app-client-secret"
     client-name: "Mobile Application"
     scopes: ["read", "write", "profile"]
-    roles: ["USER", "MOBILE_CLIENT"]
+    roles: ["CLIENT", "MOBILE_CLIENT"]
     access-token-ttl: 15  # minutes
     
   web-dashboard:
@@ -13,7 +13,7 @@ clients:
     client-secret: "web-dashboard-client-secret"
     client-name: "Web Dashboard"
     scopes: ["read", "write", "admin"]
-    roles: ["ADMIN", "DASHBOARD_USER", "MODERATOR"]
+    roles: ["ADMIN", "CLIENT"]
     access-token-ttl: 30  # minutes
     
   api-service:
@@ -21,7 +21,7 @@ clients:
     client-secret: "api-service-client-secret"
     client-name: "Backend API Service"
     scopes: ["read", "write", "system"]
-    roles: ["SERVICE", "BACKEND_API", "SYSTEM_SERVICE"]
+    roles: ["SERVICE"]
     access-token-ttl: 60  # minutes
     
   analytics-service:
