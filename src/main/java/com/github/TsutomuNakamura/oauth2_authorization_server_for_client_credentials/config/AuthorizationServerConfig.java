@@ -38,6 +38,7 @@ import org.springframework.security.oauth2.server.authorization.settings.TokenSe
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.ECKey;
@@ -51,6 +52,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.filter.ClientRoleAuthorizationFilter;
 
 @Configuration
 public class AuthorizationServerConfig {
@@ -59,10 +61,13 @@ public class AuthorizationServerConfig {
     
     private final KeysService keysService;
     private final ClientsService clientsService;
+    private final ClientRoleAuthorizationFilter clientRoleAuthorizationFilter;
     
-    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService) {
+    public AuthorizationServerConfig(KeysService keysService, ClientsService clientsService, 
+            ClientRoleAuthorizationFilter clientRoleAuthorizationFilter) {
         this.keysService = keysService;
         this.clientsService = clientsService;
+        this.clientRoleAuthorizationFilter = clientRoleAuthorizationFilter;
     }
     
     @Bean
@@ -76,6 +81,7 @@ public class AuthorizationServerConfig {
         http
             .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
             .with(authorizationServerConfigurer, Customizer.withDefaults())
+            .addFilterBefore(clientRoleAuthorizationFilter, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter.class)
             .oauth2ResourceServer(resourceServer -> resourceServer
                 .jwt(Customizer.withDefaults()));
 

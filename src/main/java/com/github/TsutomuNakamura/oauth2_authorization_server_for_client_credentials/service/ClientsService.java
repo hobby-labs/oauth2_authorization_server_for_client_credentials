@@ -66,6 +66,9 @@ public class ClientsService {
     /** The field name for access token time-to-live in client configurations. */
     private static final String ACCESS_TOKEN_TTL_FIELD = "access-token-ttl";
     
+    /** The field name for client roles in client configurations. */
+    private static final String ROLES_FIELD = "roles";
+    
     /** The prefix used to identify classpath resources in file paths. */
     private static final String CLASSPATH_PREFIX = "classpath:";
     
@@ -326,5 +329,46 @@ public class ClientsService {
             return Duration.ofMinutes((Integer) ttl);
         }
         return DEFAULT_TTL; // Default TTL
+    }
+    
+    /**
+     * Retrieves the roles for a specific client.
+     * 
+     * <p>Client roles define the authorization level and access permissions
+     * for the client. If no roles are configured or the client doesn't exist, 
+     * returns an empty list.</p>
+     * 
+     * <p>Expected YAML format:</p>
+     * <pre>{@code
+     * roles: ["CLIENT", "ADMIN", "SERVICE"]
+     * }</pre>
+     * 
+     * @param clientName the name of the client to retrieve roles for
+     * @return a List of client roles, or an empty list if not configured
+     */
+    @SuppressWarnings("unchecked")
+    public List<String> getClientRoles(String clientName) {
+        Map<String, Object> clientConfig = getClientConfig(clientName);
+        if (clientConfig == null) {
+            return List.of(); // Empty list
+        }
+        
+        Object roles = clientConfig.get(ROLES_FIELD);
+        if (roles instanceof List) {
+            return (List<String>) roles;
+        }
+        return List.of(); // Empty list
+    }
+    
+    /**
+     * Checks if a specific client has a particular role.
+     * 
+     * @param clientName the name of the client to check
+     * @param role the role to check for
+     * @return true if the client has the specified role, false otherwise
+     */
+    public boolean clientHasRole(String clientName, String role) {
+        List<String> clientRoles = getClientRoles(clientName);
+        return clientRoles.contains(role);
     }
 }
