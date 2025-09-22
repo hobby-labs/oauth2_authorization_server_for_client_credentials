@@ -3,6 +3,7 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 import java.io.IOException;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,17 +22,23 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Filter to enforce role-based authorization for OAuth2 token endpoint.
+ * Filter to enforce role-based authorization for OAuth2 endpoints.
  * 
- * <p>This filter checks if the client making a request to the /oauth2/token endpoint
- * has the required "CLIENT" role as defined in the clients.yml configuration.</p>
+ * <p>This filter checks if the client making a request to protected OAuth2 endpoints
+ * has the required role as defined in the clients.yml configuration.</p>
  * 
  * <p>The filter performs the following checks:</p>
  * <ul>
  * <li>Extracts client credentials from Authorization header (Basic Auth)</li>
  * <li>Looks up the client configuration to retrieve roles</li>
- * <li>Verifies that the client has the "CLIENT" role</li>
+ * <li>Verifies that the client has the required role for the specific endpoint</li>
  * <li>Returns HTTP 403 Forbidden if the client lacks the required role</li>
+ * </ul>
+ * 
+ * <p>Endpoint role requirements:</p>
+ * <ul>
+ * <li>/oauth2/token - requires "CLIENT" role</li>
+ * <li>/oauth2/introspect - requires "INTROSPECTOR" role</li>
  * </ul>
  */
 @Component
@@ -40,9 +47,17 @@ public class ClientRoleAuthorizationFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(ClientRoleAuthorizationFilter.class);
     
     private static final String TOKEN_ENDPOINT_PATH = "/oauth2/token";
-    private static final String REQUIRED_ROLE = "CLIENT";
+    private static final String INTROSPECT_ENDPOINT_PATH = "/oauth2/introspect";
+    private static final String CLIENT_ROLE = "CLIENT";
+    private static final String INTROSPECTOR_ROLE = "INTROSPECTOR";
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BASIC_AUTH_PREFIX = "Basic ";
+    
+    // Endpoint to role mapping
+    private static final Map<String, String> ENDPOINT_ROLE_MAP = Map.of(
+        TOKEN_ENDPOINT_PATH, CLIENT_ROLE,
+        INTROSPECT_ENDPOINT_PATH, INTROSPECTOR_ROLE
+    );
     
     private final ClientsService clientsService;
     private final ObjectMapper objectMapper;
@@ -59,20 +74,22 @@ public class ClientRoleAuthorizationFilter extends OncePerRequestFilter {
         String requestPath = request.getRequestURI();
         String method = request.getMethod();
         
-        // Only apply this filter to POST requests to the token endpoint
-        if (!"POST".equals(method) || !TOKEN_ENDPOINT_PATH.equals(requestPath)) {
+        // Check if this is a protected endpoint
+        String requiredRole = ENDPOINT_ROLE_MAP.get(requestPath);
+        if (requiredRole == null || !"POST".equals(method)) {
+            // Not a protected endpoint or not a POST request, continue
             filterChain.doFilter(request, response);
             return;
         }
         
-        logger.debug("Checking client role authorization for token endpoint access");
+        logger.debug("Checking client role authorization for {} endpoint (requires {} role)", requestPath, requiredRole);
         
         try {
             // Extract client credentials from Authorization header
             String clientId = extractClientIdFromRequest(request);
             
             if (clientId == null) {
-                logger.warn("Client ID could not be extracted from request");
+                logger.warn("Client ID could not be extracted from request to {}", requestPath);
                 sendForbiddenResponse(response, "Client authentication required");
                 return;
             }
@@ -81,7 +98,7 @@ public class ClientRoleAuthorizationFilter extends OncePerRequestFilter {
             String clientName = findClientNameByClientId(clientId);
             
             if (clientName == null) {
-                logger.warn("Client not found for client ID: {}", clientId);
+                logger.warn("Client not found for client ID: {} (endpoint: {})", clientId, requestPath);
                 sendForbiddenResponse(response, "Invalid client credentials");
                 return;
             }
@@ -89,21 +106,21 @@ public class ClientRoleAuthorizationFilter extends OncePerRequestFilter {
             // Check if client has the required role
             List<String> clientRoles = clientsService.getClientRoles(clientName);
             
-            if (!clientRoles.contains(REQUIRED_ROLE)) {
-                logger.warn("Client '{}' (ID: {}) does not have required role '{}'. Client roles: {}", 
-                    clientName, clientId, REQUIRED_ROLE, clientRoles);
-                sendForbiddenResponse(response, "Insufficient privileges. CLIENT role required.");
+            if (!clientRoles.contains(requiredRole)) {
+                logger.warn("Client '{}' (ID: {}) does not have required role '{}' for endpoint '{}'. Client roles: {}", 
+                    clientName, clientId, requiredRole, requestPath, clientRoles);
+                sendForbiddenResponse(response, "Insufficient privileges. " + requiredRole + " role required.");
                 return;
             }
             
-            logger.info("Client '{}' (ID: {}) authorized for token endpoint access with role '{}'", 
-                clientName, clientId, REQUIRED_ROLE);
+            logger.info("Client '{}' (ID: {}) authorized for {} endpoint access with role '{}'", 
+                clientName, clientId, requestPath, requiredRole);
             
             // Client is authorized, continue with the request
             filterChain.doFilter(request, response);
             
         } catch (Exception e) {
-            logger.error("Error during client role authorization: {}", e.getMessage(), e);
+            logger.error("Error during client role authorization for {}: {}", requestPath, e.getMessage(), e);
             sendForbiddenResponse(response, "Authorization check failed");
         }
     }

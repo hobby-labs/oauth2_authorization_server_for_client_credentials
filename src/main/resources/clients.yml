@@ -13,7 +13,7 @@ clients:
     client-secret: "web-dashboard-client-secret"
     client-name: "Web Dashboard"
     scopes: ["read", "write", "admin"]
-    roles: ["ADMIN", "CLIENT"]
+    roles: ["ADMIN", "CLIENT", "INTROSPECTOR"]
     access-token-ttl: 30  # minutes
     
   api-service:
@@ -21,7 +21,7 @@ clients:
     client-secret: "api-service-client-secret"
     client-name: "Backend API Service"
     scopes: ["read", "write", "system"]
-    roles: ["SERVICE"]
+    roles: ["SERVICE", "INTROSPECTOR"]
     access-token-ttl: 60  # minutes
     
   analytics-service:
