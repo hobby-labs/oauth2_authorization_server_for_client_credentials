@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -41,9 +42,15 @@ import com.nimbusds.jose.proc.SecurityContext;
 public class JwtConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(JwtConfig.class);
-    private static final String JWKS_URI = "http://localhost:9000/oauth2/jwks";
-    private static final String JWT_TYPE = "JWT";
-    private static final String JWT_VERSION = "1";
+    
+    @Value("${jwt.jwks-uri}")
+    private String jwksUri;
+    
+    @Value("${jwt.type}")
+    private String jwtType;
+    
+    @Value("${jwt.version}")
+    private String jwtVersion;
     
     private final KeysService keysService;
     
@@ -183,7 +190,7 @@ public class JwtConfig {
     @Bean
     public JwtDecoder jwtDecoder() {
         logger.info("Configuring JWT Decoder for token introspection");
-        return NimbusJwtDecoder.withJwkSetUri(JWKS_URI).build();
+        return NimbusJwtDecoder.withJwkSetUri(jwksUri).build();
     }
     
     @Bean
@@ -196,7 +203,7 @@ public class JwtConfig {
     
     private void customizeJwtHeader(JwtEncodingContext context) {
         context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
-        context.getJwsHeader().type(JWT_TYPE);
+        context.getJwsHeader().type(jwtType);
         
         addX5cCertificateChain(context);
     }
@@ -238,7 +245,7 @@ public class JwtConfig {
     }
     
     private void customizeJwtPayload(JwtEncodingContext context) {
-        context.getClaims().claim("ver", JWT_VERSION);
+        context.getClaims().claim("ver", jwtVersion);
         
         RegisteredClient registeredClient = context.getRegisteredClient();
         context.getClaims()

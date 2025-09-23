@@ -9,10 +9,14 @@ spring:
           jws-algorithms: RS512
           jwk-set-uri: https://idp.example.org/.well-known/jwks.json
 
+# JWT Configuration
+jwt:
+  jwks-uri: http://localhost:9000/oauth2/jwks
+  type: JWT
+  version: "1"
+
 # Clear, explicit logging configuration
 logging:
-  appender:
-    target: console  # Options: console, file
   level:
     com:
       github:
