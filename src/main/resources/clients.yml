@@ -1,33 +1,25 @@
 # OAuth2 Client Configurations
 clients:
   mobile-app:
-    client-id: "mobile-app-client"
-    client-secret: "mobile-app-client-secret"
-    client-name: "Mobile Application"
-    scopes: ["read", "write", "profile"]
-    roles: ["CLIENT", "MOBILE_CLIENT"]
-    access-token-ttl: 15  # minutes
-    
+    client-id: "client"
+    client-secret: "client-secret"
+    client-name: "Client Application"
+    scopes: ["read"]
+    roles: ["CLIENT"]
+    access-token-ttl: 15
+
   web-dashboard:
-    client-id: "web-dashboard-client"
-    client-secret: "web-dashboard-client-secret"
-    client-name: "Web Dashboard"
-    scopes: ["read", "write", "admin"]
-    roles: ["ADMIN", "CLIENT", "INTROSPECTOR"]
-    access-token-ttl: 30  # minutes
-    
+    client-id: "introspector"
+    client-secret: "introspector-secret"
+    client-name: "Introspector"
+    scopes: ["read"]
+    roles: ["INTROSPECTOR"]
+    access-token-ttl: 30
+
   api-service:
-    client-id: "api-service-client"
-    client-secret: "api-service-client-secret"
-    client-name: "Backend API Service"
-    scopes: ["read", "write", "system"]
-    roles: ["SERVICE", "INTROSPECTOR"]
-    access-token-ttl: 60  # minutes
-    
-  analytics-service:
-    client-id: "analytics-client"
-    client-secret: "analytics-client-secret"
-    client-name: "Analytics Service"
-    scopes: ["read", "analytics"]
-    roles: ["ANALYTICS", "READ_ONLY", "DATA_CONSUMER"]
-    access-token-ttl: 10  # minutes
+    client-id: "administrator"
+    client-secret: "administrator-secret"
+    client-name: "Administrator"
+    scopes: ["read", "write"]
+    roles: ["CLIENT", "INTROSPECTOR"]
+    access-token-ttl: 60
