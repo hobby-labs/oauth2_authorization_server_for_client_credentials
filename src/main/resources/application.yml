@@ -15,6 +15,11 @@ jwt:
   type: JWT
   version: "1"
 
+# OAuth2 Authorization Server Configuration
+oauth2:
+  authorization-server:
+    issuer: http://localhost:9000
+
 # Clear, explicit logging configuration
 logging:
   level:

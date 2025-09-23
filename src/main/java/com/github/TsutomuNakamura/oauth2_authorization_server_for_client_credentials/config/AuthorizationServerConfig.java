@@ -2,6 +2,7 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -22,7 +23,9 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 public class AuthorizationServerConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(AuthorizationServerConfig.class);
-    private static final String DEFAULT_ISSUER = "http://localhost:9000";
+    
+    @Value("${oauth2.authorization-server.issuer}")
+    private String issuer;
     
     private final ClientRoleAuthorizationFilter clientRoleAuthorizationFilter;
     
@@ -50,9 +53,9 @@ public class AuthorizationServerConfig {
 
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
-        logger.info("Authorization Server Settings initialized with issuer: {}", DEFAULT_ISSUER);
+        logger.info("Authorization Server Settings initialized with issuer: {}", issuer);
         return AuthorizationServerSettings.builder()
-                .issuer(DEFAULT_ISSUER)
+                .issuer(issuer)
                 .build();
     }
 }
