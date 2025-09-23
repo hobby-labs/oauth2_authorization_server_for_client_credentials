@@ -64,9 +64,12 @@ public class JwtConfig {
             
             return new ImmutableJWKSet<>(jwkSet);
             
+        } catch (IllegalStateException e) {
+            // Re-throw IllegalStateException as-is
+            throw e;
         } catch (Exception e) {
             logger.error("Failed to load EC key pair from YAML: {}", e.getMessage(), e);
-            throw new RuntimeException("Could not load keys from YAML configuration", e);
+            throw new IllegalStateException("Could not load keys from YAML configuration", e);
         }
     }
     
@@ -80,9 +83,13 @@ public class JwtConfig {
             try {
                 JWK jwk = createJWKForKey(keyName);
                 jwkList.add(jwk);
+                logger.debug("Successfully loaded key: {}", keyName);
             } catch (Exception e) {
                 logger.error("Failed to load key: {} - {}", keyName, e.getMessage());
-                // Continue loading other keys
+                // Stop application if any key fails to load
+                throw new IllegalStateException(
+                    String.format("Critical error: Failed to load key '%s'. All configured keys must be valid for the application to start. Reason: %s", 
+                        keyName, e.getMessage()), e);
             }
         }
         
@@ -127,7 +134,7 @@ public class JwtConfig {
     
     private void validateKeys(List<JWK> jwkList) {
         if (jwkList.isEmpty()) {
-            throw new RuntimeException("No valid keys could be loaded");
+            throw new IllegalStateException("No valid keys could be loaded. At least one key must be configured.");
         }
     }
     
@@ -157,11 +164,13 @@ public class JwtConfig {
             
             String errorMsg = String.format("Primary signing key '%s' not found or not available for signing", primaryKeyId);
             logger.error(errorMsg);
-            throw new RuntimeException(errorMsg);
+            throw new IllegalStateException(errorMsg);
             
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("Error selecting JWK for signing: {}", e.getMessage());
-            throw new RuntimeException("Error selecting JWK for signing", e);
+            throw new IllegalStateException("Error selecting JWK for signing", e);
         }
     }
     
