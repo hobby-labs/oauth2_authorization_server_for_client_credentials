@@ -19,6 +19,9 @@ jwt:
 oauth2:
   authorization-server:
     issuer: http://localhost:9000
+  client:
+    password-encoder-prefix: "{noop}"
+    fail-on-registration-error: false
 
 # Clear, explicit logging configuration
 logging:

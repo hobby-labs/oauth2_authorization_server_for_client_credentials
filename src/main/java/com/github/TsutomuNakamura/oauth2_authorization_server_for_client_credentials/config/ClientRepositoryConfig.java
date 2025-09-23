@@ -1,53 +1,128 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.config;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.oauth2.core.AuthorizationGrantType;
-import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.InMemoryRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.factory.RegisteredClientFactory;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
 
 /**
- * Configuration for OAuth2 client repository
- * Handles loading and registration of OAuth2 clients from YAML configuration
+ * Configuration class for OAuth2 client repository management.
+ * 
+ * <p>This configuration is responsible for loading OAuth2 clients from external configuration
+ * and registering them with Spring Security's OAuth2 authorization server. It follows the DRY
+ * principle by delegating client creation to a dedicated factory and using shared configuration models.</p>
+ * 
+ * <h3>Key Responsibilities:</h3>
+ * <ul>
+ *   <li>Load client configurations from external YAML files via {@link ClientsService}</li>
+ *   <li>Validate that at least one client is configured</li>
+ *   <li>Transform client configurations into Spring Security RegisteredClient objects</li>
+ *   <li>Handle registration errors based on configuration</li>
+ *   <li>Provide comprehensive logging of the registration process</li>
+ * </ul>
+ * 
+ * <h3>DRY Improvements:</h3>
+ * <ul>
+ *   <li><strong>Externalized Constants:</strong> Password encoder prefix moved to application.yml</li>
+ *   <li><strong>Shared Model:</strong> Uses common ClientConfiguration model from model package</li>
+ *   <li><strong>Factory Pattern:</strong> Delegates RegisteredClient creation to RegisteredClientFactory</li>
+ *   <li><strong>Configurable Behavior:</strong> Error handling strategy externalized to configuration</li>
+ * </ul>
+ * 
+ * <h3>Configuration Source:</h3>
+ * <p>Client configurations are loaded from the file specified by the {@code clients.file.path}
+ * property, defaulting to {@code classpath:clients.yml}.</p>
+ * 
+ * @author TsutomuNakamura
+ * @since 0.0.1-SNAPSHOT
+ * @see ClientsService
+ * @see RegisteredClientFactory
+ * @see ClientConfiguration
  */
 @Configuration
 public class ClientRepositoryConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(ClientRepositoryConfig.class);
-    private static final String PASSWORD_ENCODER_PREFIX = "{noop}";
+    
+    /**
+     * Whether to fail fast when a client registration fails.
+     * If true, application startup fails when any client cannot be registered.
+     * If false, continues with other clients and logs errors.
+     */
+    @Value("${oauth2.client.fail-on-registration-error:false}")
+    private boolean failOnRegistrationError;
     
     private final ClientsService clientsService;
+    private final RegisteredClientFactory clientFactory;
     
-    public ClientRepositoryConfig(ClientsService clientsService) {
+    /**
+     * Constructs the ClientRepositoryConfig with required dependencies.
+     * 
+     * @param clientsService the service for accessing client configurations from YAML
+     * @param clientFactory the factory for creating RegisteredClient instances
+     */
+    public ClientRepositoryConfig(ClientsService clientsService, RegisteredClientFactory clientFactory) {
         this.clientsService = clientsService;
+        this.clientFactory = clientFactory;
     }
     
+    /**
+     * Creates and configures the OAuth2 client repository.
+     * 
+     * <p>This bean is the central registry for all OAuth2 clients in the authorization server.
+     * It loads client configurations from the external YAML file and transforms them into
+     * Spring Security's RegisteredClient format using the client factory.</p>
+     * 
+     * <h4>Registration Process:</h4>
+     * <ol>
+     *   <li>Load all client configurations from YAML via ClientsService</li>
+     *   <li>Validate that at least one client is configured</li>
+     *   <li>Transform each client configuration into a RegisteredClient via factory</li>
+     *   <li>Store all clients in an in-memory repository</li>
+     * </ol>
+     * 
+     * <h4>Error Handling:</h4>
+     * <ul>
+     *   <li>If no clients are configured: Fails with IllegalStateException</li>
+     *   <li>If a client registration fails: Behavior depends on fail-on-registration-error property</li>
+     * </ul>
+     * 
+     * @return a RegisteredClientRepository containing all configured OAuth2 clients
+     * @throws IllegalStateException if no clients are configured or if fail-on-registration-error
+     *         is true and any client registration fails
+     */
     @Bean
     public RegisteredClientRepository registeredClientRepository() {
-        logger.info("Loading OAuth2 clients from YAML configuration...");
+        logger.info("Initializing OAuth2 client repository...");
         
         Map<String, Object> allClients = clientsService.getAllClients();
         validateClientsConfiguration(allClients);
         
         List<RegisteredClient> clients = buildRegisteredClients(allClients);
+        validateRegisteredClients(clients, allClients.size());
         
-        logger.info("Total registered clients: {}", clients.size());
+        logger.info("Successfully registered {} OAuth2 client(s)", clients.size());
         return new InMemoryRegisteredClientRepository(clients);
     }
     
+    /**
+     * Validates that at least one client is configured.
+     * 
+     * @param allClients the map of all client configurations
+     * @throws IllegalStateException if no clients are configured
+     */
     private void validateClientsConfiguration(Map<String, Object> allClients) {
         if (allClients.isEmpty()) {
             String errorMessage = "No OAuth2 clients configured in clients.yml. " +
@@ -61,53 +136,71 @@ public class ClientRepositoryConfig {
         }
     }
     
+    /**
+     * Builds RegisteredClient instances from client configurations.
+     * 
+     * @param allClients the map of all client configurations
+     * @return a list of successfully registered clients
+     */
     private List<RegisteredClient> buildRegisteredClients(Map<String, Object> allClients) {
         List<RegisteredClient> clients = new ArrayList<>();
         
         for (String clientName : allClients.keySet()) {
             try {
-                RegisteredClient client = buildRegisteredClient(clientName);
+                ClientConfiguration config = clientsService.getClientConfiguration(clientName);
+                RegisteredClient client = clientFactory.createRegisteredClient(config);
                 clients.add(client);
                 logClientRegistration(clientName, client);
             } catch (Exception e) {
-                logger.error("Failed to register client '{}': {}", clientName, e.getMessage());
-                // Continue with other clients
+                handleRegistrationError(clientName, e);
             }
         }
         
         return clients;
     }
     
-    private RegisteredClient buildRegisteredClient(String clientName) {
-        ClientConfiguration config = extractClientConfiguration(clientName);
+    /**
+     * Validates that registered clients meet minimum requirements.
+     * 
+     * @param clients the list of registered clients
+     * @param expectedCount the expected number of clients
+     * @throws IllegalStateException if validation fails
+     */
+    private void validateRegisteredClients(List<RegisteredClient> clients, int expectedCount) {
+        if (clients.isEmpty() && expectedCount > 0) {
+            throw new IllegalStateException("No clients could be successfully registered");
+        }
         
-        RegisteredClient.Builder builder = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId(config.clientId())
-                .clientSecret(PASSWORD_ENCODER_PREFIX + config.clientSecret())
-                .clientName(config.displayName())
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenTimeToLive(config.tokenTtl())
-                        .build());
-        
-        // Add scopes
-        config.scopes().forEach(builder::scope);
-        
-        return builder.build();
+        if (clients.size() < expectedCount) {
+            logger.warn("Only {} out of {} clients were successfully registered", 
+                clients.size(), expectedCount);
+        }
     }
     
-    private ClientConfiguration extractClientConfiguration(String clientName) {
-        return new ClientConfiguration(
-            clientsService.getClientId(clientName),
-            clientsService.getClientSecret(clientName),
-            clientsService.getClientDisplayName(clientName),
-            clientsService.getClientScopes(clientName),
-            clientsService.getAccessTokenTtl(clientName)
-        );
+    /**
+     * Handles errors during client registration.
+     * 
+     * @param clientName the name of the client that failed to register
+     * @param error the error that occurred
+     * @throws IllegalStateException if fail-on-registration-error is true
+     */
+    private void handleRegistrationError(String clientName, Exception error) {
+        String errorMessage = "Failed to register client '" + clientName + "': " + error.getMessage();
+        
+        if (failOnRegistrationError) {
+            logger.error(errorMessage);
+            throw new IllegalStateException(errorMessage, error);
+        } else {
+            logger.warn(errorMessage + " (continuing with other clients)");
+        }
     }
     
+    /**
+     * Logs successful client registration with key details.
+     * 
+     * @param clientName the name of the client that was registered
+     * @param client the registered client
+     */
     private void logClientRegistration(String clientName, RegisteredClient client) {
         logger.info("Registered client '{}' ({}) with scopes: {}, TTL: {}min", 
             client.getClientId(),
@@ -116,15 +209,4 @@ public class ClientRepositoryConfig {
             client.getTokenSettings().getAccessTokenTimeToLive().toMinutes()
         );
     }
-    
-    /**
-     * Record to hold client configuration data
-     */
-    private record ClientConfiguration(
-        String clientId,
-        String clientSecret,
-        String displayName,
-        List<String> scopes,
-        Duration tokenTtl
-    ) {}
 }

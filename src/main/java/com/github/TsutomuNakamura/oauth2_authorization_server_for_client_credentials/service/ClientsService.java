@@ -7,6 +7,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
+
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Map;
@@ -370,5 +372,36 @@ public class ClientsService {
     public boolean clientHasRole(String clientName, String role) {
         List<String> clientRoles = getClientRoles(clientName);
         return clientRoles.contains(role);
+    }
+    
+    /**
+     * Creates a complete ClientConfiguration object for a given client.
+     * 
+     * <p>This method aggregates all client configuration data into a single
+     * type-safe configuration object, making it easier to work with client
+     * configurations across the application.</p>
+     * 
+     * @param clientName the name of the client to create configuration for
+     * @return a ClientConfiguration object containing all client metadata
+     * @throws IllegalArgumentException if the client doesn't exist or has invalid configuration
+     */
+    public ClientConfiguration getClientConfiguration(String clientName) {
+        Map<String, Object> clientConfig = getClientConfig(clientName);
+        if (clientConfig == null) {
+            throw new IllegalArgumentException("Client '" + clientName + "' not found in configuration");
+        }
+        
+        try {
+            return new ClientConfiguration(
+                getClientId(clientName),
+                getClientSecret(clientName),
+                getClientDisplayName(clientName),
+                getClientScopes(clientName),
+                getAccessTokenTtl(clientName),
+                getClientRoles(clientName)
+            );
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid configuration for client '" + clientName + "': " + e.getMessage(), e);
+        }
     }
 }

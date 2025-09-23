@@ -19,6 +19,16 @@
       "name": "oauth2.authorization-server.issuer",
       "type": "java.lang.String",
       "description": "The issuer URI for the OAuth2 Authorization Server."
+    },
+    {
+      "name": "oauth2.client.password-encoder-prefix",
+      "type": "java.lang.String",
+      "description": "The password encoder prefix for OAuth2 client secrets. Use {noop} for plain text (development only)."
+    },
+    {
+      "name": "oauth2.client.fail-on-registration-error",
+      "type": "java.lang.Boolean",
+      "description": "Whether to fail application startup when a client registration fails."
     }
   ]
 }
