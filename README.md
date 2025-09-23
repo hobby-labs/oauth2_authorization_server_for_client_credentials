@@ -14,7 +14,7 @@ curl https://start.spring.io/starter.zip \
 ```
 
 ## Start the application
-* For testing parposes only
+* For testing purposes only
 ```
 $ ./mvnw spring-boot:run
 ```
@@ -26,18 +26,22 @@ $ ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.config.additional
 
 ## Testing with curl
 
+**Note: Role-Based Authorization is now enforced on OAuth2 endpoints:**
+- `/oauth2/token` requires clients with "CLIENT" role
+- `/oauth2/introspect` requires clients with "INTROSPECTOR" role
+
 ```
-$ curl -v -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+$ curl -v -u client:client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
 * Host localhost:9000 was resolved.
 * IPv6: ::1
 * IPv4: 127.0.0.1
 *   Trying [::1]:9000...
 * Connected to localhost (::1) port 9000
 * using HTTP/1.x
-* Server auth using Basic with user 'my-client'
+* Server auth using Basic with user 'client'
 > POST /oauth2/token HTTP/1.1
 > Host: localhost:9000
-> Authorization: Basic bXktY2xpZW50Om15LXNlY3JldA==
+> Authorization: Basic Y2xpZW50OmNsaWVudC1zZWNyZXQ=
 > User-Agent: curl/8.14.1
 > Accept: */*
 > Content-Length: 40
@@ -60,8 +64,8 @@ $ curl -v -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_cr
 ```
 
 ```
-$ response_body="$(curl -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
-$ jwt=$(jq -r '.access_token' < <(curl -u mobile-app-client:mobile-app-client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
+$ response_body="$(curl -u client:client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token)"
+$ jwt=$(jq -r '.access_token' < <(curl -u client:client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token))
 $ jwt_header=$(echo -n ${jwt} | cut -d '.' -f 1 | base64 --decode)
 $ jwt_payload=$(echo -n ${jwt} | cut -d '.' -f 2 | base64 --decode)
 $ echo ${jwt_header} | jq
@@ -82,7 +86,7 @@ Decoded JWT.
 | Key | Value |
 | ---- | ---- |
 | Header | {"x5c":["MIICdTCCAhugAwIBAgIJAOExample1...","MIICdTCCAhugAwIBAgIJAOExample2..."],"kid":"ec-key-1f66a2f1-180b-4170-a0dc-ad0899b1c582","typ":"JWT","alg":"ES256"} |
-| Payload | {"sub":"my-client","aud":"my-client","ver":"1","nbf":1752539029,"scope":["read"],"iss":"http://localhost:9000","exp":1752539329,"iat":1752539029,"jti":"0e1c81a9-c588-4009-ae2f-ac558aef82ed"} |
+| Payload | {"sub":"client","aud":"client","ver":"1","nbf":1752539029,"scope":["read"],"iss":"http://localhost:9000","exp":1752539329,"iat":1752539029,"jti":"0e1c81a9-c588-4009-ae2f-ac558aef82ed"} |
 | Signature | (Binary signature) |
 
 ## Testing with tool
@@ -91,13 +95,88 @@ Decoded JWT.
 $ ./test_request.sh
 ```
 
+## Testing Role-Based Authorization
+
+Test the role-based authorization for individual endpoints:
+
+```bash
+# Test only /oauth2/token endpoint authorization
+$ ./test_role_authorization.sh
+
+# Test both /oauth2/token and /oauth2/introspect endpoints
+$ ./test_comprehensive_authorization.sh
+```
+
+The comprehensive test will verify:
+- Clients with "CLIENT" role can access `/oauth2/token`
+- Clients with "INTROSPECTOR" role can access `/oauth2/introspect`  
+- Clients without required roles are properly denied access
+- Invalid clients are rejected appropriately
+
 # Endpoints
+
+## Role-Based Authorization
+
+This OAuth2 Authorization Server implements role-based access control for its endpoints. Client roles are defined in the `clients.yml` configuration file.
+
+### Endpoint Access Requirements:
+
+| Endpoint | Required Role | Description |
+|----------|---------------|-------------|
+| `/oauth2/token` | `CLIENT` | Obtain access tokens for client credentials flow |
+| `/oauth2/introspect` | `INTROSPECTOR` | Introspect and validate access tokens |
+
+### Current Client Configuration:
+
+| Client Name | Client ID | Roles | Allowed Endpoints |
+|-------------|-----------|-------|-------------------|
+| Client Application | `client` | CLIENT | `/oauth2/token` |
+| Introspector | `introspector` | INTROSPECTOR | `/oauth2/introspect` |
+| Administrator | `administrator` | CLIENT, INTROSPECTOR | Both endpoints |
+
+### Client Role Configuration Example:
+
+```yaml
+clients:
+  mobile-app:
+    client-id: "client"
+    client-secret: "client-secret"
+    client-name: "Client Application"
+    scopes: ["read"]
+    roles: ["CLIENT"]  # Can access /oauth2/token
+    access-token-ttl: 15
+    
+  web-dashboard:
+    client-id: "introspector" 
+    client-secret: "introspector-secret"
+    client-name: "Introspector"
+    scopes: ["read"]
+    roles: ["INTROSPECTOR"]  # Can only access /oauth2/introspect
+    access-token-ttl: 30
+    
+  api-service:
+    client-id: "administrator"
+    client-secret: "administrator-secret"
+    client-name: "Administrator"
+    scopes: ["read", "write"]
+    roles: ["CLIENT", "INTROSPECTOR"]  # Can access both endpoints
+    access-token-ttl: 60
+```
+
+**Note:** Clients without the required role will receive HTTP 403 Forbidden responses with a descriptive error message.
 
 ## Get the access token
 
-* /oauth2/introspect
+* /oauth2/token (Requires "CLIENT" role)
 ```
-$ curl -v -u mobile-app-client:mobile-app-secret-2025 -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+# Client with CLIENT role
+$ curl -v -u client:client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+
+# Administrator with CLIENT role
+$ curl -v -u administrator:administrator-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
+
+# This will fail with 403 (no CLIENT role)
+$ curl -v -u introspector:introspector-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token
 ```
 
 ## Get the public key for verifying JWT signature
@@ -109,21 +188,38 @@ $ curl http://localhost:9000/oauth2/jwks
 
 ## Introspect JWT tokens with introspection endpoint
 
-* /oauth2/introspect
+* /oauth2/introspect (Requires "INTROSPECTOR" role)
 ```
-$ JWT_TOKEN="<your_access_token>"
+# First, get a token with a client that has CLIENT role
+$ JWT_TOKEN=$(curl -s -u client:client-secret -d "grant_type=client_credentials&scope=read" http://localhost:9000/oauth2/token | jq -r '.access_token')
+
+# Introspect with a client that has INTROSPECTOR role
 $ curl -v -X POST http://localhost:9000/oauth2/introspect \
-    -u "mobile-app-client:mobile-app-client-secret" \
+    -u "introspector:introspector-secret" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "token=${JWT_TOKEN}&token_type_hint=access_token"
+
+# Administrator can also introspect (has INTROSPECTOR role)
+$ curl -v -X POST http://localhost:9000/oauth2/introspect \
+    -u "administrator:administrator-secret" \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "token=${JWT_TOKEN}&token_type_hint=access_token"
+
+# This will fail with 403 (no INTROSPECTOR role)
+$ curl -v -X POST http://localhost:9000/oauth2/introspect \
+    -u "client:client-secret" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     -d "token=${JWT_TOKEN}&token_type_hint=access_token"
 ```
 
-* Q. Should introspection endpoint have authentication mechanisms like "-u mobile-app-client:mobile-app-client-secret"?
+* Q. Should introspection endpoint have authentication mechanisms like "-u introspector:introspector-secret"?
 * A. Yes it should. In order to the section ["2.1.Introspection Request" in RFC 7662](https://datatracker.ietf.org/doc/html/rfc7662#section-2.1) mentions below.
 
 ```
 To prevent token scanning attacks, the endpoint MUST also require some form of authorization to access this endpoint, such as client authentication as described in OAuth 2.0 [RFC6749] or a separate OAuth 2.0 access token such as the bearer token described in OAuth2.0 Bearer Token Usage [RFC6750]. The methods of managing and validating these authentication credentials are out of scope of this specification.
 ```
+
+**Note:** Our implementation adds an additional layer of role-based authorization. Only clients with the "INTROSPECTOR" role can access this endpoint, providing enhanced security beyond basic authentication.
 
 # Keys to sign and verify JWT
 ## Generate public key pair with OpenSSL which algorithm is ES256
