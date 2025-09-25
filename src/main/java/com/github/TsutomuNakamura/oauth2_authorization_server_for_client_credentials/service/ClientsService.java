@@ -40,7 +40,7 @@ import java.util.List;
  *     client-name: "My Application"
  *     scopes: ["read", "write"]
  *     access-token-ttl: 60
- *     roles: ["CLIENT", "ADMIN"]
+ *     roles: ["CLIENT", "INTROSPECTOR"]
  * }</pre>
  * 
  * <p>Initialization: Configuration is loaded once during application startup using 
