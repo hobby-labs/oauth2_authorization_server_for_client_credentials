@@ -1,5 +1,7 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
@@ -9,6 +11,7 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 
+import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Map;
@@ -17,9 +20,9 @@ import java.util.List;
 /**
  * Service for managing OAuth2 client configurations from YAML configuration files.
  * 
- * <p>This service provides thread-safe loading and access to OAuth2 client configurations 
+ * <p>This service loads and provides access to OAuth2 client configurations 
  * defined in YAML configuration files. It supports both classpath and filesystem 
- * resources, with lazy loading and caching for optimal performance.</p>
+ * resources, with eager loading at application startup for fail-fast behavior.</p>
  * 
  * <p>The expected YAML structure includes:</p>
  * <ul>
@@ -37,16 +40,20 @@ import java.util.List;
  *     client-name: "My Application"
  *     scopes: ["read", "write"]
  *     access-token-ttl: 60
+ *     roles: ["CLIENT", "ADMIN"]
  * }</pre>
  * 
- * <p>Thread Safety: This class is thread-safe through the use of volatile fields
- * and double-checked locking pattern for configuration loading.</p>
+ * <p>Initialization: Configuration is loaded once during application startup using 
+ * {@code @PostConstruct}. Any configuration errors will prevent application startup,
+ * ensuring fail-fast behavior.</p>
  * 
- * @author OAuth2 Authorization Server
+ * @author TsutomuNakamura
  * @since 1.0
  */
 @Service
 public class ClientsService {
+    
+    private static final Logger logger = LoggerFactory.getLogger(ClientsService.class);
     
     // YAML configuration constants
     
@@ -91,36 +98,183 @@ public class ClientsService {
     /** Raw YAML data loaded from the configuration file. */
     private Map<String, Object> yamlData;
     
-    /** Flag to ensure configuration is loaded only once using double-checked locking. */
-    private volatile boolean configurationLoaded = false;
+    /** Cached clients section for efficient access. */
+    private Map<String, Object> clientsSection;
     
     /**
-     * Constructs a new ClientsService instance.
+     * Initializes the service by loading and validating client configurations.
      * 
-     * <p>Configuration loading is deferred until the first access to maintain
-     * lazy initialization and improve startup performance.</p>
+     * <p>This method is called automatically after dependency injection during
+     * application startup. It ensures that:</p>
+     * <ul>
+     * <li>The configuration file exists and is readable</li>
+     * <li>The YAML structure is valid</li>
+     * <li>At least one client is configured</li>
+     * <li>All clients have required fields (client-id and client-secret)</li>
+     * </ul>
+     * 
+     * <p>Fail-Fast Behavior: If any validation fails, the application will not start,
+     * preventing runtime configuration errors.</p>
+     * 
+     * @throws IllegalStateException if configuration cannot be loaded or is invalid
      */
-    public ClientsService() {
-        // Configuration will be loaded lazily when first accessed
+    @PostConstruct
+    public void init() {
+        logger.info("Initializing ClientsService with configuration from: {}", clientsFilePath);
+        loadYamlConfiguration();
+        extractClientsSection();
+        validateConfiguration();
+        logger.info("ClientsService initialization completed successfully");
     }
     
     /**
-     * Ensures the YAML configuration is loaded using double-checked locking pattern.
+     * Loads and parses the YAML configuration file containing client definitions.
      * 
-     * <p>This method implements thread-safe lazy initialization of the configuration.
-     * The double-checked locking pattern ensures that even in multi-threaded 
-     * environments, the configuration is loaded exactly once.</p>
+     * <p>This method is called once during initialization and loads the entire
+     * YAML configuration into memory for efficient access.</p>
      * 
-     * <p>Thread Safety: Uses synchronized block with volatile boolean flag.</p>
+     * @throws IllegalStateException if the configuration file cannot be loaded or parsed
      */
-    private void ensureConfigurationLoaded() {
-        if (!configurationLoaded) {
-            synchronized (this) {
-                if (!configurationLoaded) {
-                    loadYamlConfiguration();
-                    configurationLoaded = true;
-                }
+    private void loadYamlConfiguration() {
+        try {
+            Resource resource = getClientsResource();
+            logger.debug("Loading configuration from resource: {}", resource.getDescription());
+            
+            Yaml yaml = new Yaml();
+            try (InputStream inputStream = resource.getInputStream()) {
+                yamlData = yaml.load(inputStream);
             }
+            
+            if (yamlData == null) {
+                throw new IllegalStateException("Configuration file is empty or contains invalid YAML");
+            }
+            
+            logger.info("Successfully loaded YAML configuration");
+        } catch (Exception e) {
+            logger.error("Failed to load clients configuration from {}: {}", clientsFilePath, e.getMessage());
+            throw new IllegalStateException(
+                "Could not load clients configuration from " + clientsFilePath + 
+                ". Application cannot start without valid client configuration.", e);
+        }
+    }
+    
+    /**
+     * Extracts and caches the clients section from the loaded YAML data.
+     * 
+     * <p>This method is called once during initialization to cache the clients
+     * section for efficient repeated access.</p>
+     * 
+     * @throws IllegalStateException if the clients section is not found in the configuration
+     */
+    @SuppressWarnings("unchecked")
+    private void extractClientsSection() {
+        Object clientsData = yamlData.get(CLIENTS_SECTION);
+        if (clientsData == null) {
+            throw new IllegalStateException(
+                "No 'clients' section found in configuration file " + clientsFilePath + 
+                ". Expected a 'clients:' section containing client definitions.");
+        }
+        
+        if (!(clientsData instanceof Map)) {
+            throw new IllegalStateException(
+                "Invalid 'clients' section in configuration file " + clientsFilePath + 
+                ". Expected a map of client configurations.");
+        }
+        
+        clientsSection = (Map<String, Object>) clientsData;
+        logger.debug("Extracted clients section with {} entries", clientsSection.size());
+    }
+    
+    /**
+     * Validates the loaded configuration to ensure all required fields are present.
+     * 
+     * <p>This method performs comprehensive validation including:</p>
+     * <ul>
+     * <li>At least one client must be configured</li>
+     * <li>Each client must have a client-id</li>
+     * <li>Each client must have a client-secret</li>
+     * <li>Validates data types for optional fields</li>
+     * </ul>
+     * 
+     * @throws IllegalStateException if validation fails
+     */
+    private void validateConfiguration() {
+        if (clientsSection.isEmpty()) {
+            throw new IllegalStateException(
+                "No clients configured in " + clientsFilePath + 
+                ". At least one client must be configured.");
+        }
+        
+        for (Map.Entry<String, Object> entry : clientsSection.entrySet()) {
+            String clientName = entry.getKey();
+            validateClient(clientName);
+        }
+        
+        logger.info("Validated {} client configuration(s)", clientsSection.size());
+    }
+    
+    /**
+     * Validates an individual client configuration.
+     * 
+     * @param clientName the name of the client to validate
+     * @throws IllegalStateException if the client configuration is invalid
+     */
+    @SuppressWarnings("unchecked")
+    private void validateClient(String clientName) {
+        Object clientData = clientsSection.get(clientName);
+        if (!(clientData instanceof Map)) {
+            throw new IllegalStateException(
+                "Invalid configuration for client '" + clientName + 
+                "'. Expected a map of configuration properties.");
+        }
+        
+        Map<String, Object> clientConfig = (Map<String, Object>) clientData;
+        
+        // Validate required fields
+        String clientId = (String) clientConfig.get(CLIENT_ID_FIELD);
+        if (clientId == null || clientId.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' is missing required field 'client-id'");
+        }
+        
+        String clientSecret = (String) clientConfig.get(CLIENT_SECRET_FIELD);
+        if (clientSecret == null || clientSecret.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' is missing required field 'client-secret'");
+        }
+        
+        // Validate optional fields have correct types
+        validateOptionalFields(clientName, clientConfig);
+        
+        logger.debug("Validated client '{}' (ID: {})", clientName, clientId);
+    }
+    
+    /**
+     * Validates optional fields in a client configuration.
+     * 
+     * @param clientName the name of the client being validated
+     * @param clientConfig the client configuration map
+     */
+    private void validateOptionalFields(String clientName, Map<String, Object> clientConfig) {
+        // Validate scopes if present
+        Object scopes = clientConfig.get(SCOPES_FIELD);
+        if (scopes != null && !(scopes instanceof List)) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' has invalid 'scopes' field. Expected a list.");
+        }
+        
+        // Validate roles if present
+        Object roles = clientConfig.get(ROLES_FIELD);
+        if (roles != null && !(roles instanceof List)) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' has invalid 'roles' field. Expected a list.");
+        }
+        
+        // Validate access-token-ttl if present
+        Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
+        if (ttl != null && !(ttl instanceof Integer)) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' has invalid 'access-token-ttl' field. Expected an integer (minutes).");
         }
     }
     
@@ -137,113 +291,60 @@ public class ClientsService {
      * @return a Resource pointing to the clients configuration file
      */
     private Resource getClientsResource() {
-        // If the path starts with classpath: or is just a filename, use ClassPathResource
         if (clientsFilePath.startsWith(CLASSPATH_PREFIX) || !clientsFilePath.contains("/")) {
             String resourcePath = clientsFilePath.startsWith(CLASSPATH_PREFIX) ? 
                 clientsFilePath.substring(CLASSPATH_PREFIX.length()) : clientsFilePath;
             return new ClassPathResource(resourcePath);
         } else {
-            // Otherwise, treat it as a file system path
             return new FileSystemResource(clientsFilePath);
         }
     }
     
     /**
-     * Loads and parses the YAML configuration file containing client definitions.
-     * 
-     * <p>This method loads the YAML configuration from the resource determined by
-     * {@link #getClientsResource()} and stores the parsed data for subsequent access.</p>
-     * 
-     * <p>Error Handling: Wraps any loading exceptions in RuntimeException with
-     * descriptive error messages including the file path.</p>
-     * 
-     * @throws RuntimeException if the configuration file cannot be loaded or parsed
-     */
-    private void loadYamlConfiguration() {
-        try {
-            Resource resource = getClientsResource();
-            Yaml yaml = new Yaml();
-            try (InputStream inputStream = resource.getInputStream()) {
-                yamlData = yaml.load(inputStream);
-            }
-            System.out.println("Successfully loaded clients configuration from: " + clientsFilePath);
-        } catch (Exception e) {
-            System.err.println("Failed to load clients from " + clientsFilePath + ": " + e.getMessage());
-            throw new RuntimeException("Could not load clients from " + clientsFilePath, e);
-        }
-    }
-    
-    /**
-     * Retrieves the clients section from the YAML configuration data.
-     * 
-     * <p>This method ensures the configuration is loaded and returns the clients
-     * section for efficient repeated access. The clients section contains all
-     * OAuth2 client definitions.</p>
-     * 
-     * @return the clients section as a Map, or null if not present
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> getClientsSection() {
-        ensureConfigurationLoaded();
-        return (Map<String, Object>) yamlData.get(CLIENTS_SECTION);
-    }
-
-    /**
      * Retrieves all OAuth2 client configurations from the YAML file.
      * 
-     * <p>This method returns a Map containing all client definitions, where
-     * keys are client names and values are client configuration objects.</p>
-     * 
-     * @return a Map of all client configurations, or an empty Map if no clients are defined
+     * @return a Map of all client configurations, never null
      */
     public Map<String, Object> getAllClients() {
-        Map<String, Object> clients = getClientsSection();
-        return clients != null ? clients : Map.of();
+        return clientsSection != null ? clientsSection : Map.of();
     }
     
     /**
      * Retrieves the configuration for a specific OAuth2 client by name.
      * 
-     * <p>This method looks up a client configuration in the clients section and
-     * returns the complete configuration object for the specified client.</p>
-     * 
      * @param clientName the name of the client to retrieve configuration for
-     * @return the client configuration as a Map containing all client metadata,
-     *         or null if the client is not found
+     * @return the client configuration as a Map, or null if not found
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> getClientConfig(String clientName) {
-        Map<String, Object> clients = getClientsSection();
-        if (clients == null) {
+        if (clientsSection == null) {
             return null;
         }
-        return (Map<String, Object>) clients.get(clientName);
+        return (Map<String, Object>) clientsSection.get(clientName);
     }
     
     /**
-     * Retrieves a string attribute from a client configuration with optional default value.
+     * Retrieves a string attribute from a client configuration.
      * 
-     * <p>This helper method safely looks up a string attribute in a client's configuration.
-     * It handles null client configurations gracefully by returning the specified default value.</p>
-     * 
-     * @param clientName the name of the client to retrieve the attribute from
-     * @param attributeName the name of the attribute to retrieve
-     * @param defaultValue the default value to return if the attribute is not found or client doesn't exist
-     * @return the attribute value, or the default value if not found or client doesn't exist
+     * @param clientName the name of the client
+     * @param attributeName the name of the attribute
+     * @param defaultValue the default value if not found
+     * @return the attribute value or default
      */
     private String getClientAttribute(String clientName, String attributeName, String defaultValue) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
-        return clientConfig != null ? (String) clientConfig.get(attributeName) : defaultValue;
+        if (clientConfig == null) {
+            return defaultValue;
+        }
+        Object value = clientConfig.get(attributeName);
+        return value != null ? value.toString() : defaultValue;
     }
 
     /**
      * Retrieves the OAuth2 client ID for a specific client.
      * 
-     * <p>The client ID is used for OAuth2 authentication and authorization flows.
-     * This is a required field for OAuth2 client registration.</p>
-     * 
-     * @param clientName the name of the client to retrieve the ID for
-     * @return the client ID, or null if the client doesn't exist or no ID is configured
+     * @param clientName the name of the client
+     * @return the client ID, or null if not found
      */
     public String getClientId(String clientName) {
         return getClientAttribute(clientName, CLIENT_ID_FIELD, null);
@@ -252,11 +353,8 @@ public class ClientsService {
     /**
      * Retrieves the OAuth2 client secret for a specific client.
      * 
-     * <p>The client secret is used for OAuth2 client authentication.
-     * This is a required field for confidential OAuth2 clients.</p>
-     * 
-     * @param clientName the name of the client to retrieve the secret for
-     * @return the client secret, or null if the client doesn't exist or no secret is configured
+     * @param clientName the name of the client
+     * @return the client secret, or null if not found
      */
     public String getClientSecret(String clientName) {
         return getClientAttribute(clientName, CLIENT_SECRET_FIELD, null);
@@ -265,12 +363,8 @@ public class ClientsService {
     /**
      * Retrieves the display name for a specific client.
      * 
-     * <p>The display name provides a human-readable name for the client,
-     * useful for user interfaces and logging. If no display name is configured,
-     * the client name itself is returned as a fallback.</p>
-     * 
-     * @param clientName the name of the client to retrieve the display name for
-     * @return the client display name, or the client name if no display name is configured
+     * @param clientName the name of the client
+     * @return the display name, or the client name if not configured
      */
     public String getClientDisplayName(String clientName) {
         return getClientAttribute(clientName, CLIENT_NAME_FIELD, clientName);
@@ -279,111 +373,79 @@ public class ClientsService {
     /**
      * Retrieves the OAuth2 scopes for a specific client.
      * 
-     * <p>OAuth2 scopes define the permissions that the client can request.
-     * If no scopes are configured or the client doesn't exist, returns a list
-     * containing the default scope.</p>
-     * 
-     * <p>Expected YAML format:</p>
-     * <pre>{@code
-     * scopes: ["read", "write", "admin"]
-     * }</pre>
-     * 
-     * @param clientName the name of the client to retrieve scopes for
-     * @return a List of OAuth2 scopes, or a list containing the default scope if not configured
+     * @param clientName the name of the client
+     * @return a List of scopes, or default scope if not configured
      */
     @SuppressWarnings("unchecked")
     public List<String> getClientScopes(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
-            return List.of(DEFAULT_SCOPE); // Default scope
+            return List.of(DEFAULT_SCOPE);
         }
         
         Object scopes = clientConfig.get(SCOPES_FIELD);
         if (scopes instanceof List) {
             return (List<String>) scopes;
         }
-        return List.of(DEFAULT_SCOPE); // Default scope
+        return List.of(DEFAULT_SCOPE);
     }
     
     /**
-     * Retrieves the access token time-to-live (TTL) for a specific client.
+     * Retrieves the access token TTL for a specific client.
      * 
-     * <p>The access token TTL determines how long access tokens issued for this
-     * client will remain valid. The value should be specified in minutes in the
-     * YAML configuration.</p>
-     * 
-     * <p>Expected YAML format:</p>
-     * <pre>{@code
-     * access-token-ttl: 60  # 60 minutes
-     * }</pre>
-     * 
-     * @param clientName the name of the client to retrieve the TTL for
-     * @return the access token TTL as a Duration, or the default TTL if not configured
+     * @param clientName the name of the client
+     * @return the TTL as Duration, or default if not configured
      */
     public Duration getAccessTokenTtl(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
-            return DEFAULT_TTL; // Default TTL
+            return DEFAULT_TTL;
         }
         
         Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
         if (ttl instanceof Integer) {
             return Duration.ofMinutes((Integer) ttl);
         }
-        return DEFAULT_TTL; // Default TTL
+        return DEFAULT_TTL;
     }
     
     /**
      * Retrieves the roles for a specific client.
      * 
-     * <p>Client roles define the authorization level and access permissions
-     * for the client. If no roles are configured or the client doesn't exist, 
-     * returns an empty list.</p>
-     * 
-     * <p>Expected YAML format:</p>
-     * <pre>{@code
-     * roles: ["CLIENT", "ADMIN", "SERVICE"]
-     * }</pre>
-     * 
-     * @param clientName the name of the client to retrieve roles for
-     * @return a List of client roles, or an empty list if not configured
+     * @param clientName the name of the client
+     * @return a List of roles, or empty list if not configured
      */
     @SuppressWarnings("unchecked")
     public List<String> getClientRoles(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
-            return List.of(); // Empty list
+            return List.of();
         }
         
         Object roles = clientConfig.get(ROLES_FIELD);
         if (roles instanceof List) {
             return (List<String>) roles;
         }
-        return List.of(); // Empty list
+        return List.of();
     }
     
     /**
-     * Checks if a specific client has a particular role.
+     * Checks if a client has a specific role.
      * 
-     * @param clientName the name of the client to check
-     * @param role the role to check for
-     * @return true if the client has the specified role, false otherwise
+     * @param clientName the name of the client
+     * @param role the role to check
+     * @return true if the client has the role
      */
     public boolean clientHasRole(String clientName, String role) {
-        List<String> clientRoles = getClientRoles(clientName);
-        return clientRoles.contains(role);
+        return getClientRoles(clientName).contains(role);
     }
     
     /**
-     * Creates a complete ClientConfiguration object for a given client.
+     * Creates a complete ClientConfiguration object for a client.
      * 
-     * <p>This method aggregates all client configuration data into a single
-     * type-safe configuration object, making it easier to work with client
-     * configurations across the application.</p>
-     * 
-     * @param clientName the name of the client to create configuration for
-     * @return a ClientConfiguration object containing all client metadata
-     * @throws IllegalArgumentException if the client doesn't exist or has invalid configuration
+     * @param clientName the name of the client
+     * @return a ClientConfiguration object
+     * @throws IllegalArgumentException if client not found or invalid
      */
     public ClientConfiguration getClientConfiguration(String clientName) {
         Map<String, Object> clientConfig = getClientConfig(clientName);
@@ -401,7 +463,8 @@ public class ClientsService {
                 getClientRoles(clientName)
             );
         } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid configuration for client '" + clientName + "': " + e.getMessage(), e);
+            throw new IllegalArgumentException(
+                "Invalid configuration for client '" + clientName + "': " + e.getMessage(), e);
         }
     }
 }
