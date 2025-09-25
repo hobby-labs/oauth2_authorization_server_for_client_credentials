@@ -43,6 +43,13 @@ public class JwtConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(JwtConfig.class);
     
+    // JWT Algorithm Constants
+    private static final Curve DEFAULT_CURVE = Curve.P_256;
+    private static final JWSAlgorithm JWS_ALGORITHM = JWSAlgorithm.ES256;
+    private static final SignatureAlgorithm SIGNATURE_ALGORITHM = SignatureAlgorithm.ES256;
+    private static final KeyUse KEY_USE = KeyUse.SIGNATURE;
+    private static final String ALGORITHM_INFO = "Algorithm: ES256, Curve: P-256";
+    
     @Value("${jwt.jwks-uri}")
     private String jwksUri;
     
@@ -110,10 +117,10 @@ public class JwtConfig {
             Set.of(KeyOperation.SIGN, KeyOperation.VERIFY) :
             Set.of(KeyOperation.VERIFY);
             
-        ECKey.Builder ecKeyBuilder = new ECKey.Builder(Curve.P_256, keyConfig.publicKey())
+        ECKey.Builder ecKeyBuilder = new ECKey.Builder(DEFAULT_CURVE, keyConfig.publicKey())
                 .keyID(keyConfig.keyId())
-                .algorithm(JWSAlgorithm.ES256)
-                .keyUse(KeyUse.SIGNATURE)
+                .algorithm(JWS_ALGORITHM)
+                .keyUse(KEY_USE)
                 .keyOperations(keyOps);
         
         // Only add private key to primary key for signing
@@ -148,7 +155,7 @@ public class JwtConfig {
     private void logJwkSourceInitialization(int keyCount) {
         logger.info("JWK Source initialized with {} key(s)", keyCount);
         logger.info("Primary key: {}", keysService.getPrimaryKeyName());
-        logger.info("Algorithm: ES256, Curve: P-256");
+        logger.info(ALGORITHM_INFO);
     }
     
     @Bean
@@ -202,7 +209,7 @@ public class JwtConfig {
     }
     
     private void customizeJwtHeader(JwtEncodingContext context) {
-        context.getJwsHeader().algorithm(SignatureAlgorithm.ES256);
+        context.getJwsHeader().algorithm(SIGNATURE_ALGORITHM);
         context.getJwsHeader().type(jwtType);
         
         addX5cCertificateChain(context);
