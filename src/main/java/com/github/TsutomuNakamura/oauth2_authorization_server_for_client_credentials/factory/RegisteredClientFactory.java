@@ -41,6 +41,20 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 public class RegisteredClientFactory {
     
     /**
+     * Default client authentication methods supported by this factory.
+     * Includes both BASIC and POST authentication methods for client flexibility.
+     */
+    private static final ClientAuthenticationMethod[] DEFAULT_AUTH_METHODS = {
+        ClientAuthenticationMethod.CLIENT_SECRET_BASIC,
+        ClientAuthenticationMethod.CLIENT_SECRET_POST
+    };
+    
+    /**
+     * Default authorization grant type for OAuth2 client credentials flow.
+     */
+    private static final AuthorizationGrantType DEFAULT_GRANT_TYPE = AuthorizationGrantType.CLIENT_CREDENTIALS;
+    
+    /**
      * Password encoder prefix for client secrets.
      * Injected from application.yml configuration.
      */
@@ -70,21 +84,11 @@ public class RegisteredClientFactory {
             throw new IllegalArgumentException("Client configuration cannot be null");
         }
         
-        RegisteredClient.Builder builder = RegisteredClient.withId(UUID.randomUUID().toString())
-                .clientId(config.clientId())
-                .clientSecret(passwordEncoderPrefix + config.clientSecret())
-                .clientName(config.displayName())
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
-                .tokenSettings(TokenSettings.builder()
-                        .accessTokenTimeToLive(config.tokenTtl())
-                        .build());
+        TokenSettings defaultTokenSettings = TokenSettings.builder()
+                .accessTokenTimeToLive(config.tokenTtl())
+                .build();
         
-        // Add all scopes from configuration
-        config.scopes().forEach(builder::scope);
-        
-        return builder.build();
+        return createRegisteredClientWithTokenSettings(config, defaultTokenSettings);
     }
     
     /**
@@ -106,14 +110,31 @@ public class RegisteredClientFactory {
             throw new IllegalArgumentException("Token settings cannot be null");
         }
         
+        return createRegisteredClientWithTokenSettings(config, tokenSettings);
+    }
+    
+    /**
+     * Creates the base RegisteredClient builder with common configuration.
+     * 
+     * <p>This method contains all the common logic for creating RegisteredClient instances,
+     * eliminating code duplication between the public factory methods.</p>
+     * 
+     * @param config the client configuration
+     * @param tokenSettings the token settings to apply
+     * @return fully configured RegisteredClient
+     */
+    private RegisteredClient createRegisteredClientWithTokenSettings(ClientConfiguration config, TokenSettings tokenSettings) {
         RegisteredClient.Builder builder = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId(config.clientId())
                 .clientSecret(passwordEncoderPrefix + config.clientSecret())
                 .clientName(config.displayName())
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
-                .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+                .authorizationGrantType(DEFAULT_GRANT_TYPE)
                 .tokenSettings(tokenSettings);
+        
+        // Add authentication methods
+        for (ClientAuthenticationMethod method : DEFAULT_AUTH_METHODS) {
+            builder.clientAuthenticationMethod(method);
+        }
         
         // Add all scopes from configuration
         config.scopes().forEach(builder::scope);
