@@ -102,6 +102,58 @@ public class ClientsService {
     private Map<String, Object> clientsSection;
     
     /**
+     * Validates that a required string field is not null or empty.
+     * 
+     * @param clientName the name of the client being validated
+     * @param fieldValue the field value to validate
+     * @param fieldName the name of the field for error messages
+     * @throws IllegalStateException if the field is null or empty
+     */
+    private void validateRequiredStringField(String clientName, String fieldValue, String fieldName) {
+        if (fieldValue == null || fieldValue.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "Client '" + clientName + "' is missing required field '" + fieldName + "'");
+        }
+    }
+    
+    /**
+     * Validates that an optional field has the expected type.
+     * 
+     * @param clientName the name of the client being validated
+     * @param fieldValue the field value to validate (can be null)
+     * @param fieldName the name of the field for error messages
+     * @param expectedType the expected type of the field
+     * @throws IllegalStateException if the field exists but has wrong type
+     */
+    private void validateFieldType(String clientName, Object fieldValue, String fieldName, Class<?> expectedType) {
+        if (fieldValue != null && !expectedType.isInstance(fieldValue)) {
+            String expectedTypeName = expectedType.getSimpleName().toLowerCase();
+            if (expectedType == List.class) {
+                expectedTypeName = "list";
+            } else if (expectedType == Integer.class) {
+                expectedTypeName = "integer";
+            }
+            throw new IllegalStateException(
+                "Client '" + clientName + "' has invalid '" + fieldName + "' field. Expected " + expectedTypeName + ".");
+        }
+    }
+    
+    /**
+     * Validates that a configuration object is a Map type.
+     * 
+     * @param configData the configuration data to validate
+     * @param description description of what the configuration represents
+     * @param contextInfo additional context information for error messages
+     * @throws IllegalStateException if the configuration is not a Map
+     */
+    private void validateMapConfiguration(Object configData, String description, String contextInfo) {
+        if (!(configData instanceof Map)) {
+            throw new IllegalStateException(
+                "Invalid " + description + " in " + contextInfo + ". Expected a map of configuration properties.");
+        }
+    }
+    
+    /**
      * Initializes the service by loading and validating client configurations.
      * 
      * <p>This method is called automatically after dependency injection during
@@ -175,11 +227,7 @@ public class ClientsService {
                 ". Expected a 'clients:' section containing client definitions.");
         }
         
-        if (!(clientsData instanceof Map)) {
-            throw new IllegalStateException(
-                "Invalid 'clients' section in configuration file " + clientsFilePath + 
-                ". Expected a map of client configurations.");
-        }
+        validateMapConfiguration(clientsData, "'clients' section", "configuration file " + clientsFilePath);
         
         clientsSection = (Map<String, Object>) clientsData;
         logger.debug("Extracted clients section with {} entries", clientsSection.size());
@@ -222,26 +270,16 @@ public class ClientsService {
     @SuppressWarnings("unchecked")
     private void validateClient(String clientName) {
         Object clientData = clientsSection.get(clientName);
-        if (!(clientData instanceof Map)) {
-            throw new IllegalStateException(
-                "Invalid configuration for client '" + clientName + 
-                "'. Expected a map of configuration properties.");
-        }
+        validateMapConfiguration(clientData, "configuration for client '" + clientName + "'", "clients section");
         
         Map<String, Object> clientConfig = (Map<String, Object>) clientData;
         
-        // Validate required fields
+        // Validate required fields using utility method
         String clientId = (String) clientConfig.get(CLIENT_ID_FIELD);
-        if (clientId == null || clientId.trim().isEmpty()) {
-            throw new IllegalStateException(
-                "Client '" + clientName + "' is missing required field 'client-id'");
-        }
+        validateRequiredStringField(clientName, clientId, CLIENT_ID_FIELD);
         
         String clientSecret = (String) clientConfig.get(CLIENT_SECRET_FIELD);
-        if (clientSecret == null || clientSecret.trim().isEmpty()) {
-            throw new IllegalStateException(
-                "Client '" + clientName + "' is missing required field 'client-secret'");
-        }
+        validateRequiredStringField(clientName, clientSecret, CLIENT_SECRET_FIELD);
         
         // Validate optional fields have correct types
         validateOptionalFields(clientName, clientConfig);
@@ -256,25 +294,22 @@ public class ClientsService {
      * @param clientConfig the client configuration map
      */
     private void validateOptionalFields(String clientName, Map<String, Object> clientConfig) {
-        // Validate scopes if present
+        // Validate scopes field type using utility method
         Object scopes = clientConfig.get(SCOPES_FIELD);
-        if (scopes != null && !(scopes instanceof List)) {
-            throw new IllegalStateException(
-                "Client '" + clientName + "' has invalid 'scopes' field. Expected a list.");
+        if (scopes != null) {
+            validateFieldType(clientName, scopes, SCOPES_FIELD, List.class);
         }
         
-        // Validate roles if present
+        // Validate roles field type using utility method
         Object roles = clientConfig.get(ROLES_FIELD);
-        if (roles != null && !(roles instanceof List)) {
-            throw new IllegalStateException(
-                "Client '" + clientName + "' has invalid 'roles' field. Expected a list.");
+        if (roles != null) {
+            validateFieldType(clientName, roles, ROLES_FIELD, List.class);
         }
         
-        // Validate access-token-ttl if present
+        // Validate access-token-ttl field type using utility method
         Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
-        if (ttl != null && !(ttl instanceof Integer)) {
-            throw new IllegalStateException(
-                "Client '" + clientName + "' has invalid 'access-token-ttl' field. Expected an integer (minutes).");
+        if (ttl != null) {
+            validateFieldType(clientName, ttl, ACCESS_TOKEN_TTL_FIELD, Integer.class);
         }
     }
     
