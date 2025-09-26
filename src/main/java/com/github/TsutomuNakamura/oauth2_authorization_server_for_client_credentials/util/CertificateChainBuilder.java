@@ -23,6 +23,37 @@ import java.util.List;
  */
 public class CertificateChainBuilder {
     
+    /** X.509 certificate factory instance for parsing certificates */
+    private static final CertificateFactory CERTIFICATE_FACTORY;
+    
+    static {
+        try {
+            CERTIFICATE_FACTORY = CertificateFactory.getInstance("X.509");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize X.509 CertificateFactory", e);
+        }
+    }
+    
+    /**
+     * Parses a PEM-encoded certificate string into an X509Certificate object.
+     * 
+     * <p>This method handles the common pattern of converting PEM certificate strings
+     * to X509Certificate objects used throughout this utility class.</p>
+     * 
+     * @param pemCertificate the PEM-encoded certificate string
+     * @return the parsed X509Certificate object
+     * @throws Exception if the certificate cannot be parsed
+     */
+    private static X509Certificate parsePemCertificate(String pemCertificate) throws Exception {
+        if (pemCertificate == null || pemCertificate.trim().isEmpty()) {
+            throw new IllegalArgumentException("PEM certificate cannot be null or empty");
+        }
+        
+        byte[] certificateBytes = pemCertificate.getBytes();
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
+        return (X509Certificate) CERTIFICATE_FACTORY.generateCertificate(inputStream);
+    }
+    
     /**
      * Builds an x5c certificate chain array from PEM certificates.
      * 
@@ -81,12 +112,8 @@ public class CertificateChainBuilder {
      * @throws Exception if certificate cannot be parsed
      */
     private static String convertPemToDerBase64(String pemCertificate) throws Exception {
-        // Parse the PEM certificate to X509Certificate
-        byte[] certificateBytes = pemCertificate.getBytes();
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
-        
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        // Parse the PEM certificate to X509Certificate using common parser
+        X509Certificate certificate = parsePemCertificate(pemCertificate);
         
         // Get DER encoding and convert to Base64
         byte[] derEncoded = certificate.getEncoded();
@@ -109,9 +136,8 @@ public class CertificateChainBuilder {
         byte[] cert1Der = Base64.getDecoder().decode(x5cChain.get(0));
         byte[] cert2Der = Base64.getDecoder().decode(x5cChain.get(1));
         
-        CertificateFactory factory = CertificateFactory.getInstance("X.509");
-        X509Certificate cert1 = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(cert1Der));
-        X509Certificate cert2 = (X509Certificate) factory.generateCertificate(new ByteArrayInputStream(cert2Der));
+        X509Certificate cert1 = (X509Certificate) CERTIFICATE_FACTORY.generateCertificate(new ByteArrayInputStream(cert1Der));
+        X509Certificate cert2 = (X509Certificate) CERTIFICATE_FACTORY.generateCertificate(new ByteArrayInputStream(cert2Der));
         
         // Check if cert1 is issued by cert2
         try {
@@ -138,12 +164,8 @@ public class CertificateChainBuilder {
             return null;
         }
         
-        // Parse the PEM certificate to X509Certificate
-        byte[] certificateBytes = pemCertificate.getBytes();
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
-        
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        // Parse the PEM certificate to X509Certificate using common parser
+        X509Certificate certificate = parsePemCertificate(pemCertificate);
         
         // Get the issuer DN and extract CN
         String issuerDN = certificate.getIssuerX500Principal().getName();
@@ -176,12 +198,8 @@ public class CertificateChainBuilder {
             return null;
         }
         
-        // Parse the PEM certificate to X509Certificate
-        byte[] certificateBytes = pemCertificate.getBytes();
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
-        
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        // Parse the PEM certificate to X509Certificate using common parser
+        X509Certificate certificate = parsePemCertificate(pemCertificate);
         
         // Get the subject DN and extract CN
         String subjectDN = certificate.getSubjectX500Principal().getName();
@@ -214,12 +232,8 @@ public class CertificateChainBuilder {
             return null;
         }
         
-        // Parse the PEM certificate to X509Certificate
-        byte[] certificateBytes = pemCertificate.getBytes();
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
-        
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        // Parse the PEM certificate to X509Certificate using common parser
+        X509Certificate certificate = parsePemCertificate(pemCertificate);
         
         // Get the Authority Key Identifier extension (OID: 2.5.29.35)
         byte[] akiBytes = certificate.getExtensionValue("2.5.29.35");
@@ -248,12 +262,8 @@ public class CertificateChainBuilder {
             return null;
         }
         
-        // Parse the PEM certificate to X509Certificate
-        byte[] certificateBytes = pemCertificate.getBytes();
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(certificateBytes);
-        
-        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        X509Certificate certificate = (X509Certificate) certificateFactory.generateCertificate(inputStream);
+        // Parse the PEM certificate to X509Certificate using common parser
+        X509Certificate certificate = parsePemCertificate(pemCertificate);
         
         // Get the Subject Key Identifier extension (OID: 2.5.29.14)
         byte[] skiBytes = certificate.getExtensionValue("2.5.29.14");
