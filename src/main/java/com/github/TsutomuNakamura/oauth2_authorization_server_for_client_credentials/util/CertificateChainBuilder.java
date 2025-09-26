@@ -35,6 +35,18 @@ public class CertificateChainBuilder {
     }
     
     /**
+     * Private constructor to prevent instantiation of this utility class.
+     * 
+     * <p>This class is designed to be used as a utility class with static methods only.
+     * Instantiation is not supported and will throw an exception.</p>
+     * 
+     * @throws UnsupportedOperationException always, to prevent instantiation
+     */
+    private CertificateChainBuilder() {
+        throw new UnsupportedOperationException("CertificateChainBuilder is a utility class and cannot be instantiated");
+    }
+    
+    /**
      * Parses a PEM-encoded certificate string into an X509Certificate object.
      * 
      * <p>This method handles the common pattern of converting PEM certificate strings
