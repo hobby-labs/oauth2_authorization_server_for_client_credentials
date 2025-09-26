@@ -149,6 +149,33 @@ public class CertificateChainBuilder {
     }
     
     /**
+     * Extracts the Common Name (CN) from a Distinguished Name string.
+     * 
+     * <p>This method parses a Distinguished Name string and extracts the CN component.
+     * The DN format is typically "CN=name, OU=unit, O=org, ..." and this method
+     * finds and returns the value after "CN=".</p>
+     * 
+     * @param distinguishedName the Distinguished Name string to parse
+     * @return the Common Name (CN) value or null if not found
+     */
+    private static String extractCNFromDN(String distinguishedName) {
+        if (distinguishedName == null || distinguishedName.trim().isEmpty()) {
+            return null;
+        }
+        
+        // Parse CN from Distinguished Name (format: "CN=name, ...")
+        String[] dnComponents = distinguishedName.split(",");
+        for (String component : dnComponents) {
+            String trimmed = component.trim();
+            if (trimmed.startsWith("CN=")) {
+                return trimmed.substring(3); // Remove "CN=" prefix
+            }
+        }
+        
+        return null; // CN not found
+    }
+    
+    /**
      * Extracts the issuer Common Name (CN) from a PEM certificate.
      * 
      * <p>This method parses the certificate and extracts the CN field from the
@@ -167,19 +194,9 @@ public class CertificateChainBuilder {
         // Parse the PEM certificate to X509Certificate using common parser
         X509Certificate certificate = parsePemCertificate(pemCertificate);
         
-        // Get the issuer DN and extract CN
+        // Get the issuer DN and extract CN using helper method
         String issuerDN = certificate.getIssuerX500Principal().getName();
-        
-        // Parse CN from Distinguished Name (format: "CN=name, ...")
-        String[] dnComponents = issuerDN.split(",");
-        for (String component : dnComponents) {
-            String trimmed = component.trim();
-            if (trimmed.startsWith("CN=")) {
-                return trimmed.substring(3); // Remove "CN=" prefix
-            }
-        }
-        
-        return null; // CN not found
+        return extractCNFromDN(issuerDN);
     }
     
     /**
@@ -201,19 +218,9 @@ public class CertificateChainBuilder {
         // Parse the PEM certificate to X509Certificate using common parser
         X509Certificate certificate = parsePemCertificate(pemCertificate);
         
-        // Get the subject DN and extract CN
+        // Get the subject DN and extract CN using helper method
         String subjectDN = certificate.getSubjectX500Principal().getName();
-        
-        // Parse CN from Distinguished Name (format: "CN=name, ...")
-        String[] dnComponents = subjectDN.split(",");
-        for (String component : dnComponents) {
-            String trimmed = component.trim();
-            if (trimmed.startsWith("CN=")) {
-                return trimmed.substring(3); // Remove "CN=" prefix
-            }
-        }
-        
-        return null; // CN not found
+        return extractCNFromDN(subjectDN);
     }
     
     /**
