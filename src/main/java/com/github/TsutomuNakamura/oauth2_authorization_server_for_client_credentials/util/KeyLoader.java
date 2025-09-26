@@ -34,6 +34,37 @@ import java.util.Base64;
  */
 public class KeyLoader {
     
+    /** EC key factory instance for creating keys */
+    private static final KeyFactory EC_KEY_FACTORY;
+    
+    static {
+        try {
+            EC_KEY_FACTORY = KeyFactory.getInstance("EC");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to initialize EC KeyFactory", e);
+        }
+    }
+    
+    /**
+     * Cleans PEM content by removing headers, footers, and whitespace.
+     * 
+     * <p>This method handles the common pattern of stripping PEM headers and footers
+     * for both standard and EC-specific key formats, then removes all whitespace
+     * to prepare the content for Base64 decoding.</p>
+     * 
+     * @param pemContent the PEM-encoded content with headers and footers
+     * @param keyType the key type ("PRIVATE" or "PUBLIC")
+     * @return cleaned Base64-encoded key material without headers, footers, or whitespace
+     */
+    private static String cleanPemContent(String pemContent, String keyType) {
+        return pemContent
+                .replace("-----BEGIN " + keyType + " KEY-----", "")
+                .replace("-----END " + keyType + " KEY-----", "")
+                .replace("-----BEGIN EC " + keyType + " KEY-----", "")
+                .replace("-----END EC " + keyType + " KEY-----", "")
+                .replaceAll("\\s", "");
+    }
+    
     /**
      * Loads an elliptic curve (EC) KeyPair from PEM-formatted string content.
      * 
@@ -93,19 +124,13 @@ public class KeyLoader {
      * @throws Exception if the key cannot be loaded
      */
     private static PrivateKey loadPrivateKey(String privateKeyPem) throws Exception {
-        // Remove PEM headers and decode
-        String privateKeyBase64 = privateKeyPem
-                .replace("-----BEGIN PRIVATE KEY-----", "")
-                .replace("-----END PRIVATE KEY-----", "")
-                .replace("-----BEGIN EC PRIVATE KEY-----", "")
-                .replace("-----END EC PRIVATE KEY-----", "")
-                .replaceAll("\\s", "");
+        // Remove PEM headers and decode using common helper
+        String privateKeyBase64 = cleanPemContent(privateKeyPem, "PRIVATE");
         
-        // Decode and create private key
+        // Decode and create private key using singleton factory
         byte[] privateKeyBytes = Base64.getDecoder().decode(privateKeyBase64);
-        KeyFactory keyFactory = KeyFactory.getInstance("EC");
         PKCS8EncodedKeySpec privateKeySpec = new PKCS8EncodedKeySpec(privateKeyBytes);
-        return keyFactory.generatePrivate(privateKeySpec);
+        return EC_KEY_FACTORY.generatePrivate(privateKeySpec);
     }
     
     /**
@@ -151,18 +176,12 @@ public class KeyLoader {
      * @throws Exception if the key cannot be loaded
      */
     private static PublicKey loadPublicKeyFromPem(String publicKeyPem) throws Exception {
-        // Remove PEM headers and decode
-        String publicKeyBase64 = publicKeyPem
-                .replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
-                .replace("-----BEGIN EC PUBLIC KEY-----", "")
-                .replace("-----END EC PUBLIC KEY-----", "")
-                .replaceAll("\\s", "");
+        // Remove PEM headers and decode using common helper
+        String publicKeyBase64 = cleanPemContent(publicKeyPem, "PUBLIC");
         
-        // Decode and create public key
+        // Decode and create public key using singleton factory
         byte[] publicKeyBytes = Base64.getDecoder().decode(publicKeyBase64);
-        KeyFactory keyFactory = KeyFactory.getInstance("EC");
         X509EncodedKeySpec publicKeySpec = new X509EncodedKeySpec(publicKeyBytes);
-        return keyFactory.generatePublic(publicKeySpec);
+        return EC_KEY_FACTORY.generatePublic(publicKeySpec);
     }
 }
