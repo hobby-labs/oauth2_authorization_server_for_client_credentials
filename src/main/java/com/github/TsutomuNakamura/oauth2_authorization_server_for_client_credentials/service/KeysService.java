@@ -556,15 +556,15 @@ public class KeysService {
             // Fall back to Subject/Issuer DN matching for compatibility
             String authorityByDN = autoDetectAuthorityByDN(certificatePem);
             if (authorityByDN != null) {
-                System.out.println("Fallback: Using DN-based authority detection for certificate");
+                logger.debug("Fallback: Using DN-based authority detection for certificate");
                 return authorityByDN;
             }
             
-            System.out.println("No matching authority found using any detection method");
+            logger.debug("No matching authority found using any detection method");
             return null;
             
         } catch (Exception e) {
-            System.err.println("Error during authority auto-detection: " + e.getMessage());
+            logger.warn("Error during authority auto-detection: {}", e.getMessage());
             return null;
         }
     }
@@ -585,7 +585,7 @@ public class KeysService {
             // Extract the Authority Key Identifier from the certificate
             String authorityKeyId = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractAuthorityKeyIdentifier(certificatePem);
             if (authorityKeyId == null) {
-                System.out.println("Certificate does not contain Authority Key Identifier extension");
+                logger.debug("Certificate does not contain Authority Key Identifier extension");
                 return null;
             }
             
@@ -605,20 +605,20 @@ public class KeysService {
                     try {
                         String subjectKeyId = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractSubjectKeyIdentifier(chainCertPem);
                         if (authorityKeyId.equals(subjectKeyId)) {
-                            System.out.println("Auto-detected authority '" + chainName + "' using X.509v3 Key Identifiers (AKI: " + authorityKeyId + ")");
+                            logger.debug("Auto-detected authority '{}' using X.509v3 Key Identifiers (AKI: {})", chainName, authorityKeyId);
                             return chainName;
                         }
                     } catch (Exception e) {
-                        System.err.println("Error extracting SKI from chain certificate '" + chainName + "': " + e.getMessage());
+                        logger.warn("Error extracting SKI from chain certificate '{}': {}", chainName, e.getMessage());
                     }
                 }
             }
             
-            System.out.println("No matching authority found for Authority Key Identifier: " + authorityKeyId);
+            logger.debug("No matching authority found for Authority Key Identifier: {}", authorityKeyId);
             return null;
             
         } catch (Exception e) {
-            System.err.println("Error during key identifier-based authority detection: " + e.getMessage());
+            logger.warn("Error during key identifier-based authority detection: {}", e.getMessage());
             return null;
         }
     }
@@ -657,11 +657,11 @@ public class KeysService {
                     try {
                         String chainSubjectCN = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractSubjectCN(chainCertPem);
                         if (issuerCN.equals(chainSubjectCN)) {
-                            System.out.println("Auto-detected authority '" + chainName + "' using DN matching (Issuer: " + issuerCN + ")");
+                            logger.debug("Auto-detected authority '{}' using DN matching (Issuer: {})", chainName, issuerCN);
                             return chainName;
                         }
                     } catch (Exception e) {
-                        System.err.println("Error parsing chain certificate for " + chainName + ": " + e.getMessage());
+                        logger.warn("Error parsing chain certificate for '{}': {}", chainName, e.getMessage());
                     }
                 }
             }
@@ -669,7 +669,7 @@ public class KeysService {
             return null;
             
         } catch (Exception e) {
-            System.err.println("Error during DN-based authority detection: " + e.getMessage());
+            logger.warn("Error during DN-based authority detection: {}", e.getMessage());
             return null;
         }
     }
