@@ -1,5 +1,7 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
@@ -7,6 +9,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 
+import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.Map;
@@ -16,9 +19,9 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 /**
  * Service for managing cryptographic keys from YAML configuration files.
  * 
- * <p>This service provides thread-safe loading and access to cryptographic keys 
- * defined in YAML configuration files. It supports both classpath and filesystem 
- * resources, with lazy loading and caching for optimal performance.</p>
+ * <p>This service provides access to cryptographic keys defined in YAML configuration 
+ * files. It supports both classpath and filesystem resources, with eager loading at 
+ * application startup for fail-fast behavior.</p>
  * 
  * <p>The expected YAML structure includes:</p>
  * <ul>
@@ -27,14 +30,18 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
  * <li>Each key containing private/public PEM strings and metadata</li>
  * </ul>
  * 
- * <p>Thread Safety: This class is thread-safe through the use of volatile fields
- * and double-checked locking pattern for configuration loading.</p>
+ * <p>Initialization: Configuration is loaded once during application startup using 
+ * {@code @PostConstruct}. Any configuration errors will prevent application startup,
+ * ensuring fail-fast behavior.</p>
  * 
  * @author OAuth2 Authorization Server
  * @since 1.0
  */
 @Service
 public class KeysService {
+    
+    /** Logger for this service. */
+    private static final Logger logger = LoggerFactory.getLogger(KeysService.class);
     
     // YAML configuration constants
     
@@ -89,42 +96,35 @@ public class KeysService {
     private Map<String, Object> yamlData;
     
     /** Cached config section for performance optimization. */
-    private volatile Map<String, Object> configCache;
+    private Map<String, Object> configCache;
     
     /** Cached keys section for performance optimization. */
-    private volatile Map<String, Object> keysCache;
-    
-    /** Flag to ensure configuration is loaded only once. */
-    private volatile boolean configurationLoaded = false;
+    private Map<String, Object> keysCache;
     
     /**
      * Constructs a new KeysService instance.
      * 
-     * <p>Configuration loading is deferred until the first access to maintain
-     * lazy initialization and improve startup performance.</p>
+     * <p>Configuration loading is performed during application startup via
+     * the {@code @PostConstruct} method for fail-fast initialization.</p>
      */
     public KeysService() {
-        // Configuration will be loaded lazily when first accessed
+        // Configuration will be loaded during @PostConstruct initialization
     }
     
     /**
-     * Ensures the YAML configuration is loaded using double-checked locking pattern.
+     * Initializes the KeysService by loading the YAML configuration.
      * 
-     * <p>This method implements thread-safe lazy initialization of the configuration.
-     * The double-checked locking pattern ensures that even in multi-threaded 
-     * environments, the configuration is loaded exactly once.</p>
+     * <p>This method is called automatically by Spring after the bean is constructed
+     * and all dependencies are injected. Any configuration errors will prevent
+     * application startup, ensuring fail-fast behavior.</p>
      * 
-     * <p>Thread Safety: Uses synchronized block with volatile boolean flag.</p>
+     * @throws RuntimeException if configuration cannot be loaded or is invalid
      */
-    private void ensureConfigurationLoaded() {
-        if (!configurationLoaded) {
-            synchronized (this) {
-                if (!configurationLoaded) {
-                    loadYamlConfiguration();
-                    configurationLoaded = true;
-                }
-            }
-        }
+    @PostConstruct
+    public void init() {
+        logger.info("Initializing KeysService with configuration from: {}", keysFilePath);
+        loadYamlConfiguration();
+        logger.info("KeysService initialization completed successfully");
     }
     
     /**
@@ -167,16 +167,24 @@ public class KeysService {
     private void loadYamlConfiguration() {
         try {
             Resource resource = getKeysResource();
+            logger.debug("Loading keys configuration from resource: {}", resource);
+            
             Yaml yaml = new Yaml();
             try (InputStream inputStream = resource.getInputStream()) {
                 yamlData = yaml.load(inputStream);
+                if (yamlData == null) {
+                    throw new RuntimeException("Configuration file is empty or contains invalid YAML");
+                }
+                
                 // Cache commonly used sections
                 configCache = (Map<String, Object>) yamlData.get(CONFIG_SECTION);
                 keysCache = (Map<String, Object>) yamlData.get(KEYS_SECTION);
+                
+                logger.debug("Successfully loaded keys configuration with {} keys", 
+                    keysCache != null ? keysCache.size() : 0);
             }
-            System.out.println("Successfully loaded keys configuration from: " + keysFilePath);
         } catch (Exception e) {
-            System.err.println("Failed to load keys from " + keysFilePath + ": " + e.getMessage());
+            logger.error("Failed to load keys from {}: {}", keysFilePath, e.getMessage());
             throw new RuntimeException("Could not load keys from " + keysFilePath, e);
         }
     }
@@ -184,26 +192,24 @@ public class KeysService {
     /**
      * Retrieves the configuration section from the YAML data.
      * 
-     * <p>This method ensures the configuration is loaded and returns the cached
-     * config section for efficient repeated access.</p>
+     * <p>This method returns the cached config section for efficient repeated access.
+     * Configuration is guaranteed to be loaded since it's loaded during initialization.</p>
      * 
      * @return the configuration section as a Map
      */
     private Map<String, Object> getConfig() {
-        ensureConfigurationLoaded();
         return configCache;
     }
     
     /**
      * Retrieves the keys section from the YAML data.
      * 
-     * <p>This method ensures the configuration is loaded and returns the cached
-     * keys section for efficient repeated access.</p>
+     * <p>This method returns the cached keys section for efficient repeated access.
+     * Configuration is guaranteed to be loaded since it's loaded during initialization.</p>
      * 
      * @return the keys section as a Map
      */
     private Map<String, Object> getKeys() {
-        ensureConfigurationLoaded();
         return keysCache;
     }
     
@@ -452,7 +458,6 @@ public class KeysService {
             return null;
         }
         
-        ensureConfigurationLoaded();
         Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
         if (chains == null) {
             return null;
@@ -540,7 +545,6 @@ public class KeysService {
      * @param certificatePem the PEM-encoded certificate to analyze
      * @return the name of the matching authority or null if no match found
      */
-    @SuppressWarnings("unchecked")
     private String autoDetectAuthority(String certificatePem) {
         try {
             // First try using X.509v3 Key Identifiers (preferred method)
@@ -586,7 +590,6 @@ public class KeysService {
             }
             
             // Get all available chains
-            ensureConfigurationLoaded();
             Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
             if (chains == null) {
                 return null;
@@ -639,7 +642,6 @@ public class KeysService {
             }
             
             // Get all available chains
-            ensureConfigurationLoaded();
             Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
             if (chains == null) {
                 return null;
