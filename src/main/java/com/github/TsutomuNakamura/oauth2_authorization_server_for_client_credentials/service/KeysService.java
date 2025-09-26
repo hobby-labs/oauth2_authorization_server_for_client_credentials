@@ -9,11 +9,17 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.Map;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.KeysConfiguration;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ConfigSection;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.KeyConfiguration;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
 
 /**
@@ -43,16 +49,7 @@ public class KeysService {
     /** Logger for this service. */
     private static final Logger logger = LoggerFactory.getLogger(KeysService.class);
     
-    // YAML configuration constants
-    
-    /** The name of the configuration section in the YAML file. */
-    private static final String CONFIG_SECTION = "config";
-    
-    /** The name of the keys section in the YAML file. */
-    private static final String KEYS_SECTION = "keys";
-    
-    /** The field name for the primary key configuration in the config section. */
-    private static final String PRIMARY_KEY_FIELD = "primary-key";
+    // YAML configuration constants (for attribute name matching)
     
     /** The field name for key ID in key configurations. */
     private static final String KEY_ID_FIELD = "keyId";
@@ -65,15 +62,6 @@ public class KeysService {
     
     /** The field name for authority reference in key configurations. */
     private static final String AUTHORITY_FIELD = "authority";
-    
-    /** The name of the chains section in the YAML file. */
-    private static final String CHAINS_SECTION = "chains";
-    
-    /** The field name for private key PEM string in key configurations. */
-    private static final String PRIVATE_KEY_FIELD = "private";
-    
-    /** The field name for public key PEM string in key configurations. */
-    private static final String PUBLIC_KEY_FIELD = "public";
     
     /** The prefix used to identify classpath resources in file paths. */
     private static final String CLASSPATH_PREFIX = "classpath:";
@@ -92,14 +80,8 @@ public class KeysService {
     @Value("${keys.file.path:keys.yml}")
     private String keysFilePath;
     
-    /** Raw YAML data loaded from the configuration file. */
-    private Map<String, Object> yamlData;
-    
-    /** Cached config section for performance optimization. */
-    private Map<String, Object> configCache;
-    
-    /** Cached keys section for performance optimization. */
-    private Map<String, Object> keysCache;
+    /** Type-safe configuration loaded from the YAML file. */
+    private KeysConfiguration keysConfiguration;
     
     /**
      * Constructs a new KeysService instance.
@@ -152,37 +134,43 @@ public class KeysService {
     }
     
     /**
-     * Loads and parses the YAML configuration file.
+     * Loads and parses the YAML configuration file into type-safe DTOs.
      * 
      * <p>This method loads the YAML configuration from the resource determined by
-     * {@link #getKeysResource()} and caches the commonly used sections (config and keys)
-     * for performance optimization.</p>
+     * {@link #getKeysResource()} and converts it to type-safe DTOs using Jackson's
+     * ObjectMapper for reliable type conversion.</p>
      * 
      * <p>Error Handling: Wraps any loading exceptions in RuntimeException with
      * descriptive error messages including the file path.</p>
      * 
      * @throws RuntimeException if the configuration file cannot be loaded or parsed
      */
-    @SuppressWarnings("unchecked")
     private void loadYamlConfiguration() {
         try {
             Resource resource = getKeysResource();
             logger.debug("Loading keys configuration from resource: {}", resource);
             
+            // Load YAML data using SnakeYAML
             Yaml yaml = new Yaml();
+            Object yamlData;
             try (InputStream inputStream = resource.getInputStream()) {
                 yamlData = yaml.load(inputStream);
                 if (yamlData == null) {
                     throw new RuntimeException("Configuration file is empty or contains invalid YAML");
                 }
-                
-                // Cache commonly used sections
-                configCache = (Map<String, Object>) yamlData.get(CONFIG_SECTION);
-                keysCache = (Map<String, Object>) yamlData.get(KEYS_SECTION);
-                
-                logger.debug("Successfully loaded keys configuration with {} keys", 
-                    keysCache != null ? keysCache.size() : 0);
             }
+            
+            // Convert to type-safe DTOs using Jackson
+            ObjectMapper mapper = new ObjectMapper();
+            keysConfiguration = mapper.convertValue(yamlData, KeysConfiguration.class);
+            
+            if (keysConfiguration == null) {
+                throw new RuntimeException("Failed to parse configuration into type-safe structure");
+            }
+            
+            int keysCount = keysConfiguration.getKeys() != null ? keysConfiguration.getKeys().size() : 0;
+            logger.debug("Successfully loaded keys configuration with {} keys", keysCount);
+            
         } catch (Exception e) {
             logger.error("Failed to load keys from {}: {}", keysFilePath, e.getMessage());
             throw new RuntimeException("Could not load keys from " + keysFilePath, e);
@@ -192,25 +180,25 @@ public class KeysService {
     /**
      * Retrieves the configuration section from the YAML data.
      * 
-     * <p>This method returns the cached config section for efficient repeated access.
+     * <p>This method returns the type-safe config section for efficient repeated access.
      * Configuration is guaranteed to be loaded since it's loaded during initialization.</p>
      * 
-     * @return the configuration section as a Map
+     * @return the configuration section
      */
-    private Map<String, Object> getConfig() {
-        return configCache;
+    private ConfigSection getConfig() {
+        return keysConfiguration.getConfig();
     }
     
     /**
      * Retrieves the keys section from the YAML data.
      * 
-     * <p>This method returns the cached keys section for efficient repeated access.
+     * <p>This method returns the type-safe keys section for efficient repeated access.
      * Configuration is guaranteed to be loaded since it's loaded during initialization.</p>
      * 
      * @return the keys section as a Map
      */
-    private Map<String, Object> getKeys() {
-        return keysCache;
+    private Map<String, KeyConfiguration> getKeys() {
+        return keysConfiguration.getKeys();
     }
     
     /**
@@ -222,7 +210,7 @@ public class KeysService {
      * @return the primary key name as configured in the YAML file
      */
     public String getPrimaryKeyName() {
-        return (String) getConfig().get(PRIMARY_KEY_FIELD);
+        return getConfig().getPrimaryKey();
     }
     
     /**
@@ -232,13 +220,12 @@ public class KeysService {
      * validates that the key exists.</p>
      * 
      * @param keyName the name of the key to retrieve configuration for
-     * @return the key configuration as a Map containing key metadata and PEM strings
+     * @return the key configuration containing key metadata and PEM strings
      * @throws IllegalArgumentException if the specified key is not found
      */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> getKeyConfig(String keyName) {
-        Map<String, Object> keys = getKeys();
-        Map<String, Object> keyConfig = (Map<String, Object>) keys.get(keyName);
+    private KeyConfiguration getKeyConfig(String keyName) {
+        Map<String, KeyConfiguration> keys = getKeys();
+        KeyConfiguration keyConfig = keys.get(keyName);
         if (keyConfig == null) {
             throw new IllegalArgumentException("Key not found: " + keyName);
         }
@@ -251,10 +238,10 @@ public class KeysService {
      * <p>This is a convenience method that combines {@link #getPrimaryKeyName()}
      * and {@link #getKeyConfig(String)} to get the primary key's configuration.</p>
      * 
-     * @return the primary key configuration as a Map
+     * @return the primary key configuration
      * @throws IllegalArgumentException if the primary key is not found
      */
-    private Map<String, Object> getPrimaryKeyConfig() {
+    private KeyConfiguration getPrimaryKeyConfig() {
         String primaryKeyName = getPrimaryKeyName();
         return getKeyConfig(primaryKeyName);
     }
@@ -265,13 +252,13 @@ public class KeysService {
      * <p>This method extracts the private and public key PEM strings from the
      * configuration and uses {@link KeyLoader} to create a KeyPair instance.</p>
      * 
-     * @param keyConfig the key configuration containing "private" and "public" PEM strings
+     * @param keyConfig the key configuration containing private and public PEM strings
      * @return a KeyPair instance created from the PEM strings
      * @throws Exception if the PEM strings cannot be parsed or loaded
      */
-    private KeyPair createKeyPairFromConfig(Map<String, Object> keyConfig) throws Exception {
-        String privateKeyPem = (String) keyConfig.get(PRIVATE_KEY_FIELD);
-        String publicKeyPem = (String) keyConfig.get(PUBLIC_KEY_FIELD);
+    private KeyPair createKeyPairFromConfig(KeyConfiguration keyConfig) throws Exception {
+        String privateKeyPem = keyConfig.getPrivateKey();
+        String publicKeyPem = keyConfig.getPublicKey();
         return KeyLoader.loadECFromPemStrings(privateKeyPem.trim(), publicKeyPem.trim());
     }
     
@@ -281,13 +268,19 @@ public class KeysService {
      * <p>This method looks up a specific attribute in the primary key's configuration
      * and returns either the found value or the provided default value if not found.</p>
      * 
-     * @param attributeName the name of the attribute to retrieve
+     * @param attributeName the name of the attribute to retrieve (keyId, algorithm, curve, authority)
      * @param defaultValue the default value to return if the attribute is not found or null
      * @return the attribute value or the default value if not found
      */
     private String getPrimaryKeyAttribute(String attributeName, String defaultValue) {
-        Map<String, Object> keyConfig = getPrimaryKeyConfig();
-        String value = (String) keyConfig.get(attributeName);
+        KeyConfiguration keyConfig = getPrimaryKeyConfig();
+        String value = switch (attributeName) {
+            case KEY_ID_FIELD -> keyConfig.getKeyId();
+            case ALGORITHM_FIELD -> keyConfig.getAlgorithm();
+            case CURVE_FIELD -> keyConfig.getCurve();
+            case AUTHORITY_FIELD -> keyConfig.getAuthority();
+            default -> throw new IllegalArgumentException("Unknown attribute: " + attributeName);
+        };
         return value != null ? value : defaultValue;
     }
     
@@ -299,14 +292,20 @@ public class KeysService {
      * making it suitable for optional key lookups.</p>
      * 
      * @param keyName the name of the key to retrieve the attribute from
-     * @param attributeName the name of the attribute to retrieve
+     * @param attributeName the name of the attribute to retrieve (keyId, algorithm, curve, authority)
      * @param defaultValue the default value to return if the attribute is not found or null
      * @return the attribute value, the default value if not found, or null if the key doesn't exist
      */
     private String getKeyAttribute(String keyName, String attributeName, String defaultValue) {
         try {
-            Map<String, Object> keyConfig = getKeyConfig(keyName);
-            String value = (String) keyConfig.get(attributeName);
+            KeyConfiguration keyConfig = getKeyConfig(keyName);
+            String value = switch (attributeName) {
+                case KEY_ID_FIELD -> keyConfig.getKeyId();
+                case ALGORITHM_FIELD -> keyConfig.getAlgorithm();
+                case CURVE_FIELD -> keyConfig.getCurve();
+                case AUTHORITY_FIELD -> keyConfig.getAuthority();
+                default -> throw new IllegalArgumentException("Unknown attribute: " + attributeName);
+            };
             return value != null ? value : defaultValue;
         } catch (IllegalArgumentException e) {
             return null;
@@ -338,7 +337,7 @@ public class KeysService {
      * @throws IllegalArgumentException if the key name is not found in configuration
      */
     public KeyPair getKeyPair(String keyName) throws Exception {
-        Map<String, Object> keyConfig = getKeyConfig(keyName);
+        KeyConfiguration keyConfig = getKeyConfig(keyName);
         return createKeyPairFromConfig(keyConfig);
     }
 
@@ -452,23 +451,22 @@ public class KeysService {
      * @param authorityName the name of the authority/CA
      * @return the certificate PEM string or null if not found
      */
-    @SuppressWarnings("unchecked")
     public String getChainCertificate(String authorityName) {
         if (authorityName == null) {
             return null;
         }
         
-        Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
+        Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
         if (chains == null) {
             return null;
         }
         
-        Map<String, Object> chainData = (Map<String, Object>) chains.get(authorityName);
+        ChainConfiguration chainData = chains.get(authorityName);
         if (chainData == null) {
             return null;
         }
         
-        return (String) chainData.get(PUBLIC_KEY_FIELD);
+        return chainData.getPublicKey();
     }
     
     /**
@@ -481,8 +479,8 @@ public class KeysService {
      */
     public String getPublicKey(String keyName) {
         try {
-            Map<String, Object> keyConfig = getKeyConfig(keyName);
-            return (String) keyConfig.get(PUBLIC_KEY_FIELD);
+            KeyConfiguration keyConfig = getKeyConfig(keyName);
+            return keyConfig.getPublicKey();
         } catch (IllegalArgumentException e) {
             return null;
         }
@@ -579,7 +577,6 @@ public class KeysService {
      * @param certificatePem the PEM-encoded certificate to analyze
      * @return the name of the matching authority or null if no match found
      */
-    @SuppressWarnings("unchecked")
     private String autoDetectAuthorityByKeyIdentifiers(String certificatePem) {
         try {
             // Extract the Authority Key Identifier from the certificate
@@ -590,16 +587,16 @@ public class KeysService {
             }
             
             // Get all available chains
-            Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
+            Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
             if (chains == null) {
                 return null;
             }
             
             // Check each chain certificate to see if its SKI matches the certificate's AKI
-            for (Map.Entry<String, Object> chainEntry : chains.entrySet()) {
+            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
                 String chainName = chainEntry.getKey();
-                Map<String, Object> chainData = (Map<String, Object>) chainEntry.getValue();
-                String chainCertPem = (String) chainData.get(PUBLIC_KEY_FIELD);
+                ChainConfiguration chainData = chainEntry.getValue();
+                String chainCertPem = chainData.getPublicKey();
                 
                 if (chainCertPem != null) {
                     try {
@@ -632,7 +629,6 @@ public class KeysService {
      * @param certificatePem the PEM-encoded certificate to analyze
      * @return the name of the matching authority or null if no match found
      */
-    @SuppressWarnings("unchecked")
     private String autoDetectAuthorityByDN(String certificatePem) {
         try {
             // Extract the issuer CN from the certificate
@@ -642,16 +638,16 @@ public class KeysService {
             }
             
             // Get all available chains
-            Map<String, Object> chains = (Map<String, Object>) yamlData.get(CHAINS_SECTION);
+            Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
             if (chains == null) {
                 return null;
             }
             
             // Check each chain certificate to see if its subject matches the issuer
-            for (Map.Entry<String, Object> chainEntry : chains.entrySet()) {
+            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
                 String chainName = chainEntry.getKey();
-                Map<String, Object> chainData = (Map<String, Object>) chainEntry.getValue();
-                String chainCertPem = (String) chainData.get(PUBLIC_KEY_FIELD);
+                ChainConfiguration chainData = chainEntry.getValue();
+                String chainCertPem = chainData.getPublicKey();
                 
                 if (chainCertPem != null) {
                     try {
