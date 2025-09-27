@@ -8,10 +8,10 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 
 @SpringBootApplication
 @EnableConfigurationProperties(KeysConfig.class)
-public class MyprojectApplication {
+public class OAuth2ClientCredentialsAuthServer {
 
 	public static void main(String[] args) {
-		SpringApplication.run(MyprojectApplication.class, args);
+		SpringApplication.run(OAuth2ClientCredentialsAuthServer.class, args);
 	}
 
 }
