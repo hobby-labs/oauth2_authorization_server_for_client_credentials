@@ -46,6 +46,18 @@ public class KeyLoader {
     }
     
     /**
+     * Private constructor to prevent instantiation of this utility class.
+     * 
+     * <p>This class is designed to be used as a utility class with static methods only.
+     * Instantiation is not supported and will throw an exception.</p>
+     * 
+     * @throws UnsupportedOperationException always, to prevent instantiation
+     */
+    private KeyLoader() {
+        throw new UnsupportedOperationException("KeyLoader is a utility class and cannot be instantiated");
+    }
+    
+    /**
      * Cleans PEM content by removing headers, footers, and whitespace.
      * 
      * <p>This method handles the common pattern of stripping PEM headers and footers
