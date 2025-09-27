@@ -5,6 +5,7 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * Configuration class for loading cryptographic keys from YAML configuration files.
@@ -167,6 +168,38 @@ public class KeysConfig {
     }
     
     /**
+     * Interface for classes that support hyphenated YAML property mapping to camelCase fields.
+     * 
+     * <p>This interface provides a generic contract for configuration classes that need to map
+     * hyphenated YAML property names (e.g., "primary-key", "key-rotation") to camelCase Java
+     * field names (e.g., "primaryKey", "keyRotation"). This eliminates code duplication when
+     * implementing backward compatibility for YAML configurations.</p>
+     * 
+     * <p>The interface uses Java 8 functional programming to provide type-safe, generic
+     * mapping methods that delegate to the standard setter methods, maintaining DRY principles
+     * while supporting various property types (String, boolean, int, etc.).</p>
+     * 
+     * @since 1.0
+     * @see ConfigSection
+     */
+    interface YamlHyphenatedPropertyMapper {
+        /**
+         * Creates a generic hyphenated property setter that delegates to the standard setter.
+         * 
+         * <p>This method provides a type-safe way to create YAML compatibility methods
+         * without code duplication. It uses method references to delegate to existing
+         * setter methods.</p>
+         * 
+         * @param <T> the type of the property value
+         * @param standardSetter method reference to the standard camelCase setter
+         * @return a consumer that can be used as a hyphenated property setter
+         */
+        default <T> Consumer<T> createHyphenatedSetter(Consumer<T> standardSetter) {
+            return standardSetter;
+        }
+    }
+    
+    /**
      * Configuration class for individual key pair settings.
      * 
      * <p>This class represents a single cryptographic key pair configuration including
@@ -275,14 +308,14 @@ public class KeysConfig {
      */
     @Getter
     @Setter
-    public static class ConfigSection {
+    public static class ConfigSection implements YamlHyphenatedPropertyMapper {
         /** The key ID that should be used as the primary signing key */
         private String primaryKey;
         
         /** Whether automatic key rotation is enabled */
         private boolean keyRotation;
         
-        // YAML compatibility methods for hyphenated property names
+        // YAML compatibility methods using the generic interface
         
         /**
          * Maps "primary-key" YAML property to primaryKey field.
@@ -291,7 +324,7 @@ public class KeysConfig {
          * @param primaryKey the key ID to use for primary token signing
          */
         public void setPrimary_key(String primaryKey) {
-            this.primaryKey = primaryKey;
+            createHyphenatedSetter(this::setPrimaryKey).accept(primaryKey);
         }
         
         /**
@@ -301,7 +334,7 @@ public class KeysConfig {
          * @param keyRotation true to enable automatic key rotation, false to disable
          */
         public void setKey_rotation(boolean keyRotation) {
-            this.keyRotation = keyRotation;
+            createHyphenatedSetter(this::setKeyRotation).accept(keyRotation);
         }
     }
 }
