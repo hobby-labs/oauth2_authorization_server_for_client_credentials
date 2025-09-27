@@ -1,7 +1,6 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util;
 
 import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Map;
@@ -58,6 +57,7 @@ import java.util.function.Consumer;
  * @see ConfigSection
  */
 @ConfigurationProperties(prefix = "")
+@Getter
 public class KeysConfig {
     
     /** Map of key pair configurations indexed by key identifier */
@@ -69,6 +69,35 @@ public class KeysConfig {
     /** General configuration settings for key management */
     private ConfigSection config;
     
+    // Debug constructor
+    public KeysConfig() {
+        System.out.println("DEBUG: KeysConfig constructor called");
+    }
+    
+    public void setKeys(Map<String, KeyPairConfig> keys) {
+        System.out.println("DEBUG: setKeys called with: " + (keys != null ? keys.keySet() : "null"));
+        this.keys = keys;
+        if (keys != null) {
+            for (Map.Entry<String, KeyPairConfig> entry : keys.entrySet()) {
+                KeyPairConfig config = entry.getValue();
+                System.out.println("DEBUG: Key '" + entry.getKey() + "' - publicKey: " + 
+                    (config.getPublicKey() != null ? "NOT NULL (" + config.getPublicKey().length() + " chars)" : "NULL") +
+                    ", privateKey: " + (config.getPrivateKey() != null ? "NOT NULL" : "NULL") +
+                    ", keyId: " + config.getKeyId());
+            }
+        }
+    }
+    
+    public void setChains(Map<String, ChainConfig> chains) {
+        System.out.println("DEBUG: setChains called with: " + (chains != null ? chains.keySet() : "null"));
+        this.chains = chains;
+    }
+    
+    public void setConfig(ConfigSection config) {
+        System.out.println("DEBUG: setConfig called with: " + config);
+        this.config = config;
+    }
+    
     /**
      * Gets the map of configured key pairs.
      * 
@@ -77,19 +106,7 @@ public class KeysConfig {
     public Map<String, KeyPairConfig> getKeys() {
         return keys;
     }
-    
-    /**
-     * Sets the map of key pair configurations.
-     * 
-     * <p>This method is typically called by Spring Boot's configuration property binding
-     * during application startup to populate the keys from YAML configuration.</p>
-     * 
-     * @param keys map of key pair configurations indexed by key identifier
-     */
-    public void setKeys(Map<String, KeyPairConfig> keys) {
-        this.keys = keys;
-    }
-    
+
     /**
      * Gets the map of certificate chain configurations.
      * 
@@ -98,19 +115,7 @@ public class KeysConfig {
     public Map<String, ChainConfig> getChains() {
         return chains;
     }
-    
-    /**
-     * Sets the map of certificate chain configurations.
-     * 
-     * <p>This method is typically called by Spring Boot's configuration property binding
-     * during application startup to populate the chains from YAML configuration.</p>
-     * 
-     * @param chains map of certificate chain configurations indexed by authority name
-     */
-    public void setChains(Map<String, ChainConfig> chains) {
-        this.chains = chains;
-    }
-    
+
     /**
      * Gets the general configuration settings for key management.
      * 
@@ -118,18 +123,6 @@ public class KeysConfig {
      */
     public ConfigSection getConfig() {
         return config;
-    }
-    
-    /**
-     * Sets the general configuration settings for key management.
-     * 
-     * <p>This method is typically called by Spring Boot's configuration property binding
-     * during application startup to populate the config from YAML configuration.</p>
-     * 
-     * @param config configuration settings for key management
-     */
-    public void setConfig(ConfigSection config) {
-        this.config = config;
     }
     
     /**
@@ -229,7 +222,6 @@ public class KeysConfig {
      * @see KeysConfig
      */
     @Getter
-    @Setter
     public static class KeyPairConfig implements YamlPublicKeyMapper {
         /** The private key material in PEM format (PKCS#8 or traditional EC format) */
         private String privateKey;
@@ -258,8 +250,32 @@ public class KeysConfig {
          * @param privateKey the private key in PEM format
          */
         public void setPrivate(String privateKey) {
+            System.out.println("DEBUG: KeyPairConfig.setPrivate() called with: " + (privateKey != null ? privateKey.substring(0, Math.min(50, privateKey.length())) + "..." : "null"));
             this.privateKey = privateKey;
         }
+        
+        /**
+         * Maps "public" YAML property to publicKey field.
+         * This provides backward compatibility for YAML configurations.
+         * 
+         * @param publicKey the public key in PEM format
+         */
+        public void setPublic(String publicKey) {
+            System.out.println("DEBUG: KeyPairConfig.setPublic() called with: " + (publicKey != null ? publicKey.substring(0, Math.min(50, publicKey.length())) + "..." : "null"));
+            this.publicKey = publicKey;
+        }
+        
+        // Explicit setters required by interface and Spring Boot
+        public void setPublicKey(String publicKey) {
+            System.out.println("DEBUG: KeyPairConfig.setPublicKey() called with: " + (publicKey != null ? publicKey.substring(0, Math.min(50, publicKey.length())) + "..." : "null"));
+            this.publicKey = publicKey;
+        }
+        
+        public void setPrivateKey(String privateKey) { this.privateKey = privateKey; }
+        public void setKeyId(String keyId) { this.keyId = keyId; }
+        public void setAlgorithm(String algorithm) { this.algorithm = algorithm; }
+        public void setCurve(String curve) { this.curve = curve; }
+        public void setAuthority(String authority) { this.authority = authority; }
     }
     
     /**
@@ -281,10 +297,14 @@ public class KeysConfig {
      * @see KeyPairConfig
      */
     @Getter
-    @Setter
     public static class ChainConfig implements YamlPublicKeyMapper {
         /** The CA certificate in PEM format or X.509 certificate format */
         private String publicKey;
+        
+        // Required setter for interface
+        public void setPublicKey(String publicKey) {
+            this.publicKey = publicKey;
+        }
     }
     
     /**
@@ -307,13 +327,16 @@ public class KeysConfig {
      * @see KeyPairConfig
      */
     @Getter
-    @Setter
     public static class ConfigSection implements YamlHyphenatedPropertyMapper {
         /** The key ID that should be used as the primary signing key */
         private String primaryKey;
         
         /** Whether automatic key rotation is enabled */
         private boolean keyRotation;
+        
+        // Required setters
+        public void setPrimaryKey(String primaryKey) { this.primaryKey = primaryKey; }
+        public void setKeyRotation(boolean keyRotation) { this.keyRotation = keyRotation; }
         
         // YAML compatibility methods using the generic interface
         
