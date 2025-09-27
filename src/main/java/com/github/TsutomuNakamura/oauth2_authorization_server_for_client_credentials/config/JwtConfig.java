@@ -21,7 +21,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.token.JwtEncodingContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 
-import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.KeysService;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeysConfig;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.Curve;
@@ -142,16 +143,16 @@ public class JwtConfig {
     /**
      * Service for cryptographic key management and certificate operations.
      */
-    private final KeysService keysService;
+    private final KeysConfig keysConfig;
     
     /**
-     * Constructs JwtConfig with required KeysService dependency.
+     * Constructs JwtConfig with required KeysConfig dependency.
      * 
-     * @param keysService the service for managing cryptographic keys and certificates
+     * @param keysConfig the configuration for managing cryptographic keys and certificates
      */
     
-    public JwtConfig(KeysService keysService) {
-        this.keysService = keysService;
+    public JwtConfig(KeysConfig keysConfig) {
+        this.keysConfig = keysConfig;
     }
     
     /**
@@ -228,7 +229,8 @@ public class JwtConfig {
      */
     private List<JWK> loadAllKeys() {
         List<JWK> jwkList = new ArrayList<>();
-        Set<String> allKeyNames = keysService.getAllKeyNames();
+        // Get all configured key names from our beautiful refactored KeysConfig
+        Set<String> allKeyNames = keysConfig.getKeys().keySet();
         
         logger.info("Loading multiple keys for rotation: {}", allKeyNames);
         
@@ -323,9 +325,26 @@ public class JwtConfig {
      * @see KeysService#getPrimaryKeyName()
      */
     private KeyConfiguration extractKeyConfiguration(String keyName) throws Exception {
-        KeyPair keyPair = keysService.getKeyPair(keyName);
-        String keyId = keysService.getKeyId(keyName);
-        boolean isPrimary = keyName.equals(keysService.getPrimaryKeyName());
+        // Get key configuration from our beautiful refactored KeysConfig
+        KeysConfig.KeyPairConfig keyConfig = keysConfig.getKeys().get(keyName);
+        if (keyConfig == null) {
+            throw new IllegalArgumentException("Key not found: " + keyName);
+        }
+        
+        // Load KeyPair from PEM strings using KeyLoader utility
+        KeyPair keyPair = KeyLoader.loadECFromPemStrings(
+            keyConfig.getPrivateKey().trim(), 
+            keyConfig.getPublicKey().trim()
+        );
+        
+        // Get key ID (use keyId from config, or generate default)
+        String keyId = keyConfig.getKeyId() != null ? 
+            keyConfig.getKeyId() : 
+            keyName + "-default";
+            
+        // Check if this is the primary key
+        String primaryKeyName = keysConfig.getConfig().getPrimaryKey();
+        boolean isPrimary = keyName.equals(primaryKeyName);
         
         return new KeyConfiguration(
             (ECPublicKey) keyPair.getPublic(),
@@ -362,7 +381,7 @@ public class JwtConfig {
      */
     private void logJwkSourceInitialization(int keyCount) {
         logger.info("JWK Source initialized with {} key(s)", keyCount);
-        logger.info("Primary key: {}", keysService.getPrimaryKeyName());
+        logger.info("Primary key: {}", keysConfig.getConfig().getPrimaryKey());
         logger.info(ALGORITHM_INFO);
     }
     
@@ -421,7 +440,12 @@ public class JwtConfig {
      */
     private JWK selectPrimarySigningKey(List<JWK> candidateKeys) {
         try {
-            String primaryKeyId = keysService.getPrimaryKeyId();
+            // Get the primary key name, then get its key ID
+            String primaryKeyName = keysConfig.getConfig().getPrimaryKey();
+            KeysConfig.KeyPairConfig primaryKeyConfig = keysConfig.getKeys().get(primaryKeyName);
+            String primaryKeyId = primaryKeyConfig != null && primaryKeyConfig.getKeyId() != null ? 
+                primaryKeyConfig.getKeyId() : 
+                primaryKeyName + "-default";
             
             for (JWK jwk : candidateKeys) {
                 if (isPrimarySigningKey(jwk, primaryKeyId)) {
@@ -563,8 +587,27 @@ public class JwtConfig {
      */
     private void addX5cCertificateChain(JwtEncodingContext context) {
         try {
-            String primaryKeyName = keysService.getPrimaryKeyName();
-            List<String> certificateChain = keysService.getCertificateChain(primaryKeyName);
+            String primaryKeyName = keysConfig.getConfig().getPrimaryKey();
+            KeysConfig.KeyPairConfig primaryKeyConfig = keysConfig.getKeys().get(primaryKeyName);
+            
+            List<String> certificateChain = new ArrayList<>();
+            
+            if (primaryKeyConfig != null) {
+                // Add the end-entity certificate
+                String endEntityCert = primaryKeyConfig.getPublicKey();
+                if (endEntityCert != null && endEntityCert.contains("-----BEGIN CERTIFICATE-----")) {
+                    certificateChain.add(endEntityCert);
+                    
+                    // Add intermediate certificate if available
+                    String authority = primaryKeyConfig.getAuthority();
+                    if (authority != null && keysConfig.getChains() != null) {
+                        KeysConfig.ChainConfig chainConfig = keysConfig.getChains().get(authority);
+                        if (chainConfig != null && chainConfig.getPublicKey() != null) {
+                            certificateChain.add(chainConfig.getPublicKey());
+                        }
+                    }
+                }
+            }
             
             if (!certificateChain.isEmpty()) {
                 List<String> x5cChain = convertToX5cFormat(certificateChain);
