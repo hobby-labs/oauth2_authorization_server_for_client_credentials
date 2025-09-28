@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -194,6 +195,93 @@ class KeysServiceTest {
         
         // Then: Should return the configured primary key algorithm
         assertEquals("ES256", result);
+    }
+
+    // ========== getPrimaryKeyCurve() Tests ==========
+    
+    @Test
+    void getPrimaryKeyCurve_WithValidConfiguration_ShouldReturnPrimaryKeyCurve() throws IOException {
+        // Given: A YAML file with valid keys configuration including curve
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "ec-key-from-yaml"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getPrimaryKeyCurve
+        String result = keysService.getPrimaryKeyCurve();
+        
+        // Then: Should return the configured primary key curve
+        assertEquals("P-256", result);
+    }
+
+    // ========== getAllKeyNames() Tests ==========
+    
+    @Test
+    void getAllKeyNames_WithValidConfiguration_ShouldReturnAllKeyNames() throws IOException {
+        // Given: A YAML file with multiple keys configuration
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                  bob:
+                    keyId: "bob-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9876543210fedcba
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9876543210fedcba
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getAllKeyNames
+        Set<String> result = keysService.getAllKeyNames();
+        
+        // Then: Should return all configured key names
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertTrue(result.contains("alice"));
+        assertTrue(result.contains("bob"));
     }
 
     
