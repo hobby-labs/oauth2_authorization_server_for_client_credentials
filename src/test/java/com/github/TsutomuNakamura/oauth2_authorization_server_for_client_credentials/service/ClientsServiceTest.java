@@ -11,6 +11,8 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ClientsServiceTest {
@@ -1286,6 +1288,182 @@ class ClientsServiceTest {
         assertTrue(clientsService.clientHasRole("case-client", "Admin"));
         assertFalse(clientsService.clientHasRole("case-client", "admin"));
         assertFalse(clientsService.clientHasRole("case-client", "ADMIN"));
+    }
+
+    // ========== getClientConfiguration() Tests ==========
+    
+    @Test
+    void getClientConfiguration_WithNonExistentClient_ShouldThrowException() throws IOException {
+        // Given: A valid YAML with one client
+        String yaml = """
+                clients:
+                  test-client:
+                    client-id: "test-id"
+                    client-secret: "test-secret"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When & Then: Request non-existent client should throw exception
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, 
+            () -> clientsService.getClientConfiguration("non-existent-client"));
+        assertEquals("Client 'non-existent-client' not found in configuration", exception.getMessage());
+    }
+
+    @Test
+    void getClientConfiguration_WithMinimalClient_ShouldReturnConfiguration() throws IOException {
+        // Given: A client with minimal required fields
+        String yaml = """
+                clients:
+                  minimal-client:
+                    client-id: "minimal-id"
+                    client-secret: "minimal-secret"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When: Get client configuration
+        ClientConfiguration config = clientsService.getClientConfiguration("minimal-client");
+        
+        // Then: Should return configuration with defaults
+        assertNotNull(config);
+        assertEquals("minimal-id", config.clientId());
+        assertEquals("minimal-secret", config.clientSecret());
+        assertEquals("minimal-client", config.displayName());
+        assertEquals(List.of("read"), config.scopes());
+        assertEquals(Duration.ofMinutes(5), config.tokenTtl());
+        assertEquals(List.of(), config.roles());
+    }
+
+    @Test
+    void getClientConfiguration_WithCompleteClient_ShouldReturnConfiguration() throws IOException {
+        // Given: A client with all fields configured
+        String yaml = """
+                clients:
+                  complete-client:
+                    client-id: "complete-id"
+                    client-secret: "complete-secret"
+                    client-name: "Complete Application"
+                    scopes: ["read", "write", "admin"]
+                    access-token-ttl: 30
+                    roles: ["CLIENT", "ADMIN", "USER"]
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When: Get client configuration
+        ClientConfiguration config = clientsService.getClientConfiguration("complete-client");
+        
+        // Then: Should return configuration with all values
+        assertNotNull(config);
+        assertEquals("complete-id", config.clientId());
+        assertEquals("complete-secret", config.clientSecret());
+        assertEquals("Complete Application", config.displayName());
+        assertEquals(List.of("read", "write", "admin"), config.scopes());
+        assertEquals(Duration.ofMinutes(30), config.tokenTtl());
+        assertEquals(List.of("CLIENT", "ADMIN", "USER"), config.roles());
+    }
+
+    @Test
+    void getClientConfiguration_WithEmptyScopes_ShouldReturnDefaultScopes() throws IOException {
+        // Given: A client with empty scopes
+        String yaml = """
+                clients:
+                  empty-scopes-client:
+                    client-id: "empty-id"
+                    client-secret: "empty-secret"
+                    scopes: []
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When: Get client configuration
+        ClientConfiguration config = clientsService.getClientConfiguration("empty-scopes-client");
+        
+        // Then: Should return default scope
+        assertNotNull(config);
+        assertEquals(List.of("read"), config.scopes());
+    }
+
+    @Test
+    void getClientConfiguration_WithEmptyRoles_ShouldReturnEmptyRoles() throws IOException {
+        // Given: A client with empty roles
+        String yaml = """
+                clients:
+                  empty-roles-client:
+                    client-id: "empty-id"
+                    client-secret: "empty-secret"
+                    roles: []
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When: Get client configuration
+        ClientConfiguration config = clientsService.getClientConfiguration("empty-roles-client");
+        
+        // Then: Should return empty roles list
+        assertNotNull(config);
+        assertEquals(List.of(), config.roles());
+    }
+
+    @Test
+    void getClientConfiguration_WithMultipleClients_ShouldReturnCorrectConfiguration() throws IOException {
+        // Given: Multiple clients with different configurations
+        String yaml = """
+                clients:
+                  client-one:
+                    client-id: "id-one"
+                    client-secret: "secret-one"
+                    client-name: "Client One"
+                    scopes: ["read"]
+                    access-token-ttl: 10
+                  client-two:
+                    client-id: "id-two"
+                    client-secret: "secret-two"
+                    client-name: "Client Two"
+                    scopes: ["write"]
+                    access-token-ttl: 20
+                    roles: ["ADMIN"]
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        clientsService.init();
+        
+        // When: Get configurations for both clients
+        ClientConfiguration config1 = clientsService.getClientConfiguration("client-one");
+        ClientConfiguration config2 = clientsService.getClientConfiguration("client-two");
+        
+        // Then: Should return correct configurations for each client
+        assertNotNull(config1);
+        assertEquals("id-one", config1.clientId());
+        assertEquals("Client One", config1.displayName());
+        assertEquals(List.of("read"), config1.scopes());
+        assertEquals(Duration.ofMinutes(10), config1.tokenTtl());
+        assertEquals(List.of(), config1.roles());
+        
+        assertNotNull(config2);
+        assertEquals("id-two", config2.clientId());
+        assertEquals("Client Two", config2.displayName());
+        assertEquals(List.of("write"), config2.scopes());
+        assertEquals(Duration.ofMinutes(20), config2.tokenTtl());
+        assertEquals(List.of("ADMIN"), config2.roles());
     }
 
     

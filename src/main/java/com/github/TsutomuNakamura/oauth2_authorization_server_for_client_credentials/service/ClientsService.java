@@ -443,18 +443,13 @@ public class ClientsService {
             throw new IllegalArgumentException("Client '" + clientName + "' not found in configuration");
         }
         
-        try {
-            return new ClientConfiguration(
-                getClientId(clientName),
-                getClientSecret(clientName),
-                getClientDisplayName(clientName),
-                getClientScopes(clientName),
-                getAccessTokenTtl(clientName),
-                getClientRoles(clientName)
-            );
-        } catch (Exception e) {
-            throw new IllegalArgumentException(
-                "Invalid configuration for client '" + clientName + "': " + e.getMessage(), e);
-        }
+        return new ClientConfiguration(
+            getClientId(clientName),
+            getClientSecret(clientName),
+            getClientDisplayName(clientName),
+            getClientScopes(clientName),
+            getAccessTokenTtl(clientName),
+            getClientRoles(clientName)
+        );
     }
 }
