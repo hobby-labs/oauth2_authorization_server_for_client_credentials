@@ -15,6 +15,7 @@ import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.Map;
+import java.util.Set;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.KeysConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ConfigSection;
@@ -386,7 +387,7 @@ public class KeysService {
      * 
      * @return a Set of all available key names
      */
-    public java.util.Set<String> getAllKeyNames() {
+    public Set<String> getAllKeyNames() {
         return getKeys().keySet();
     }
         
