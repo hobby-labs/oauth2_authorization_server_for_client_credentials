@@ -429,5 +429,155 @@ class ClientsServiceTest {
         assertNull(corruptResult, "Corrupt configuration should return null");
     }
 
+    @Test
+    void getClientSecret_WithUninitializedService_ShouldReturnDefaultValue() {
+        // Given: ClientsService not initialized (clientsConfiguration is null)
+        // This targets line 332: return defaultValue when getClientConfig() returns null
+        // Tests the CLIENT_SECRET_FIELD case in the switch statement of getClientAttribute()
+        
+        // When: Call getClientSecret without initializing the service first
+        String result = clientsService.getClientSecret("any-client-name");
+        
+        // Then: Should return null (the defaultValue passed to getClientAttribute for CLIENT_SECRET_FIELD)
+        assertNull(result, "getClientSecret should return null (defaultValue) when service is not initialized");
+    }
+
+    @Test
+    void getClientSecret_WithNonExistentClient_ShouldReturnDefaultValue() throws IOException {
+        // Given: Initialized service but requesting a non-existent client
+        // This tests the CLIENT_SECRET_FIELD branch in getClientAttribute() switch statement
+        String validYamlContent = """
+            clients:
+              existing-client:
+                client-id: "existing-client-id"
+                client-secret: "existing-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientSecret for non-existent client
+        String result = clientsService.getClientSecret("non-existent-client");
+        
+        // Then: Should return null (defaultValue) since getClientConfig returns null
+        assertNull(result, "getClientSecret should return null (defaultValue) for non-existent client");
+        
+        // But should return actual value for existing client
+        String existingClientSecret = clientsService.getClientSecret("existing-client");
+        assertEquals("existing-client-secret", existingClientSecret, "getClientSecret should return actual client-secret for existing client");
+    }
+
+    @Test
+    void getClientSecret_WithCorruptedClientConfiguration_ShouldReturnDefaultValue() {
+        // Given: Corrupted state where clientsConfiguration exists but getClients() returns null
+        // This ensures getClientConfig() returns null, triggering line 332 in getClientAttribute()
+        // Specifically tests the CLIENT_SECRET_FIELD case
+        
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration mockConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", mockConfig);
+        
+        // When: Call getClientSecret
+        String result = clientsService.getClientSecret("any-client");
+        
+        // Then: Should return null (defaultValue) because getClientConfig() returns null
+        assertNull(result, "getClientSecret should return null (defaultValue) when clientsConfiguration.getClients() is null");
+    }
+
+    @Test
+    void getClientSecret_WithClientHavingNullClientSecret_ShouldReturnDefaultValue() throws IOException {
+        // Given: Client exists but has null client-secret field
+        // This tests the CLIENT_SECRET_FIELD branch where clientConfig.getClientSecret() returns null
+        
+        // Use reflection to set up the state manually (since validation would prevent this in normal init)
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration config = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto clientDto = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto();
+        // clientDto.setClientSecret(null) - if there were setters, but since clientSecret is null by default
+        
+        java.util.Map<String, com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto> clientsMap = 
+            new java.util.HashMap<>();
+        clientsMap.put("client-with-null-secret", clientDto);
+        
+        // Use reflection to set the clients map
+        ReflectionTestUtils.setField(config, "clients", clientsMap);
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", config);
+        
+        // When: Call getClientSecret for client with null client-secret
+        String result = clientsService.getClientSecret("client-with-null-secret");
+        
+        // Then: Should return null (defaultValue) because clientConfig.getClientSecret() returns null
+        // This tests the CLIENT_SECRET_FIELD -> ... != null ? ... : defaultValue logic
+        assertNull(result, "getClientSecret should return null (defaultValue) when client-secret field is null");
+    }
+
+    @Test
+    void getClientSecret_WithValidClientSecret_ShouldReturnActualValue() throws IOException {
+        // Given: Properly configured client with valid client-secret
+        // This tests the successful path of the CLIENT_SECRET_FIELD case
+        String validYamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret-value"
+                client-name: "Test Client"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientSecret for valid client
+        String result = clientsService.getClientSecret("test-client");
+        
+        // Then: Should return the actual client-secret value (not defaultValue)
+        assertEquals("test-client-secret-value", result, "getClientSecret should return actual client-secret value for valid client");
+    }
+
+    @Test
+    void getClientSecret_MultipleScenarios_ShouldHandleAllClientSecretCases() throws IOException {
+        // Given: Test multiple scenarios for CLIENT_SECRET_FIELD coverage
+        
+        // Scenario 1: Uninitialized service
+        String uninitializedResult = clientsService.getClientSecret("any-client");
+        assertNull(uninitializedResult, "Uninitialized service should return null for getClientSecret");
+        
+        // Scenario 2: Initialize service and test non-existent client  
+        String validYamlContent = """
+            clients:
+              valid-client:
+                client-id: "valid-id"
+                client-secret: "valid-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        String nonExistentResult = clientsService.getClientSecret("non-existent-client");
+        assertNull(nonExistentResult, "Non-existent client should return null for getClientSecret");
+        
+        // Scenario 3: Valid client should return actual value (not defaultValue)
+        String validResult = clientsService.getClientSecret("valid-client");
+        assertEquals("valid-secret", validResult, "Valid client should return actual client-secret, not defaultValue");
+        
+        // Scenario 4: Corrupt state
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration corruptConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", corruptConfig);
+        
+        String corruptResult = clientsService.getClientSecret("any-client");
+        assertNull(corruptResult, "Corrupt configuration should return null for getClientSecret");
+    }
+
     
 }
