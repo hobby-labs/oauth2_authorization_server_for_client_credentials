@@ -147,4 +147,93 @@ class ClientsServiceTest {
         assertTrue(exception.getMessage().contains("No 'clients' section found"));
         assertTrue(exception.getMessage().contains("Expected a 'clients:' section containing client definitions"));
     }
+
+    @Test
+    void init_WithClientHavingNullConfiguration_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create a YAML file with a client name but null configuration
+        // This targets the validateClient() method at lines 259-261
+        String yamlWithNullClientConfig = """
+                clients:
+                  valid-client:
+                    client-id: "valid-client-id"
+                    client-secret: "valid-client-secret"
+                  null-client: null
+                """;
+        
+        Path configFile = tempDir.resolve("null-client-config.yml");
+        Files.writeString(configFile, yamlWithNullClientConfig);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message targets the specific client validation at lines 259-261
+        assertTrue(exception.getMessage().contains("Client 'null-client' not found in configuration"));
+    }
+
+    @Test
+    void init_WithClientHavingEmptyConfiguration_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create a YAML file with a client name but empty configuration
+        // This also targets the validateClient() method at lines 259-261
+        String yamlWithEmptyClientConfig = """
+                clients:
+                  valid-client:
+                    client-id: "valid-client-id"
+                    client-secret: "valid-client-secret"
+                  empty-client: {}
+                """;
+        
+        Path configFile = tempDir.resolve("empty-client-config.yml");
+        Files.writeString(configFile, yamlWithEmptyClientConfig);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException
+        // This should fail during validation when empty-client has missing required fields
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // The exception should be about missing required field since empty config leads to null values
+        assertTrue(exception.getMessage().contains("empty-client") && 
+                  exception.getMessage().contains("missing required field"));
+    }
+
+    @Test
+    void init_WithMultipleClientsWhereOneIsNull_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create a YAML file with multiple clients where one has null configuration
+        // This targets the validateClient() method at lines 259-261 in a multi-client scenario
+        String yamlWithMixedClientConfigs = """
+                clients:
+                  good-client-1:
+                    client-id: "good-client-1-id"
+                    client-secret: "good-client-1-secret"
+                  bad-client: null
+                  good-client-2:
+                    client-id: "good-client-2-id" 
+                    client-secret: "good-client-2-secret"
+                """;
+        
+        Path configFile = tempDir.resolve("mixed-client-config.yml");
+        Files.writeString(configFile, yamlWithMixedClientConfigs);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException from lines 259-261
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message targets the specific client validation at lines 259-261
+        assertTrue(exception.getMessage().contains("Client 'bad-client' not found in configuration"));
+        
+        // Verify this is specifically the exception from the validateClient method, not from earlier steps
+        assertFalse(exception.getMessage().contains("clients section"));
+        assertFalse(exception.getMessage().contains("YAML"));
+    }
+
+    
 }
