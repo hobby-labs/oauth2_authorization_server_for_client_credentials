@@ -235,5 +235,68 @@ class ClientsServiceTest {
         assertFalse(exception.getMessage().contains("YAML"));
     }
 
+    @Test
+    void getClientConfig_WithNullClientsConfiguration_ShouldReturnNull() {
+        // Given: ClientsService with null clientsConfiguration (not initialized)
+        // This directly targets line 316: return null when clientsConfiguration is null
+        
+        // When: Call getClientConfig without calling init() first
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto result = 
+            clientsService.getClientConfig("any-client-name");
+        
+        // Then: Should return null as per line 316
+        assertNull(result, "getClientConfig should return null when clientsConfiguration is null");
+    }
+
+    @Test
+    void getClientConfig_WithInitializedServiceAndNonExistentClient_ShouldReturnNull() throws IOException {
+        // Given: Initialized service but asking for a client that doesn't exist
+        String validYamlContent = """
+            clients:
+              existing-client:
+                client-id: "existing-client-id"
+                client-secret: "existing-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientConfig with non-existent client name
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto result = 
+            clientsService.getClientConfig("non-existent-client");
+        
+        // Then: Should return null when client doesn't exist
+        assertNull(result, "getClientConfig should return null for non-existent client");
+        
+        // But should return valid config for existing client
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto existingClient = 
+            clientsService.getClientConfig("existing-client");
+        assertNotNull(existingClient, "getClientConfig should return valid config for existing client");
+    }
+
+    @Test
+    void getClientConfig_WithCorruptedInternalState_ShouldReturnNull() {
+        // Given: Simulate corrupted internal state where clientsConfiguration.getClients() is null
+        // This tests the second condition at line 314-315: getClients() == null
+        
+        // Use reflection to set up a scenario where clientsConfiguration exists but getClients() would return null
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration mockConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        // Note: ClientsConfiguration with null clients map will trigger the null check
+        
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", mockConfig);
+        
+        // When: Call getClientConfig
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto result = 
+            clientsService.getClientConfig("any-client");
+        
+        // Then: Should return null as per line 316 when getClients() returns null
+        assertNull(result, "getClientConfig should return null when clientsConfiguration.getClients() is null");
+    }
+
     
 }
