@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
 import java.util.Set;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -597,6 +598,134 @@ class KeysServiceTest {
         assertTrue(result.contains("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef") ||
                    result.contains("MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwI") ||
                    result.length() > 100); // At least verify it has substantial content
+    }
+
+    @Test
+    public void getCertificateChain_WithValidConfiguration_ShouldReturnChainWithEndEntityAndIntermediate() throws IOException {
+        // Given: A temporary YAML configuration with valid keys and chain data
+        String yamlContent = """
+            config:
+              primary-key: alice
+            keys:
+              alice:
+                keyId: alice-key-id
+                algorithm: ES256
+                curve: secp256r1
+                authority: pat
+                private: |
+                  -----BEGIN PRIVATE KEY-----
+                  MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                  1234567890abcdef1234567890abcdef12345678909hVMBaAI4GW4DDTaKVhBybm
+                  qWhqkFGnFSFHpHpRXWXn4FVJSDFHaK7OoEFLLk6rAhRANCAASjKVLjFn8f8nkv
+                  -----END PRIVATE KEY-----
+                public: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwXjELMAkGA1UEBhMCVVMxEzAR
+                  BgNVBAgMCldhc2hpbmd0b24xEDAOBgNVBAcMB1NlYXR0bGUxDjAMBgNVBAoMBVBh
+                  dENBMRgwFgYDVQQDDA9QYXQgSW50ZXJtZWRpYXRlMB4XDTI0MDEwMTAwMDAwMFoX
+                  DTI1MDEwMTAwMDAwMFowXjELMAkGA1UEBhMCVVMxEzARBgNVBAgMCldhc2hpbmd0
+                  b24xEDAOBgNVBAcMB1NlYXR0bGUxDjAMBgNVBAoMBUFsaWNlMRgwFgYDVQQDDA9B
+                  bGljZSBFbmQgRW50aXR5MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEoylS4xZ/
+                  H/J5L5YXlWQKl5YXlWQKl5YXlWQKl5YXlWQKl5YXlWQKl5YXlWQKl5YXlWQKl5YX
+                  lWQKl5YXlWQKl6NTMFEwHQYDVR0OBBYEFJkSd5lm2k6Tj5YlJ5m2k6Tj5YlJ5m2
+                  MB8GA1UdIwQYMBaAFJkSd5lm2k6Tj5YlJ5m2k6Tj5YlJ5m2MMA8GA1UdEwEB/wQF
+                  MAMBAf8wCgYIKoZIzj0EAwIDSAAwRQIhAKjKVLjFn8f8nkvlheVZAqXlheVZAqXl
+                  heVZAqXlheVZAiAqMpUuMWfx/yeSF5VkCpeWF5VkCpeWF5VkCpeWF5VkCg==
+                  -----END CERTIFICATE-----
+            chains:
+              pat:
+                public: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIC5TCCAk6gAwIBAgIBATAKBggqhkjOPQQDAjBYMQswCQYDVQQGEwJVUzETMBEG
+                  A1UECAwKV2FzaGluZ3RvbjEQMA4GA1UEBwwHU2VhdHRsZTEOMAwGA1UECgwFSXZh
+                  bjESMBAGA1UEAwwJSXZhbiBSb290MB4XDTI0MDEwMTAwMDAwMFoXDTI1MDEwMTAw
+                  MDAwMFowXjELMAkGA1UEBhMCVVMxEzARBgNVBAgMCldhc2hpbmd0b24xEDAOBgNV
+                  BAcMB1NlYXR0bGUxDjAMBgNVBAoMBVBhdENBMRgwFgYDVQQDDA9QYXQgSW50ZXJt
+                  ZWRpYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjKVLjFn8f8nkvlheVZAq
+                  XlheVZAqXlheVZAqXlheVZAqXlheVZAqXlheVZAqXlheVZAqXlheVZAqXlheVZCp
+                  o4HrMIHoMB0GA1UdDgQWBBSZEndZZtpOk4+WJSeZtpOk4+WJSeZtjDAf
+                  -----END CERTIFICATE-----
+            """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.write(yamlFile, yamlContent.getBytes());
+        
+        KeysService keysService = new KeysService();
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Getting the certificate chain for alice
+        List<String> chain = keysService.getCertificateChain("alice");
+        
+        // Then: Should return a list with both end-entity and intermediate certificates
+        assertNotNull(chain);
+        assertEquals(2, chain.size());
+        
+        // First certificate should be the end-entity certificate (alice's)
+        String endEntityCert = chain.get(0);
+        assertNotNull(endEntityCert);
+        assertTrue(endEntityCert.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(endEntityCert.contains("-----END CERTIFICATE-----"));
+        assertTrue(endEntityCert.contains("Alice End Entity") || endEntityCert.contains("MIIB/jCCAYSgAwIBAgICIAE"));
+        
+        // Second certificate should be the intermediate certificate (pat's)
+        String intermediateCert = chain.get(1);
+        assertNotNull(intermediateCert);
+        assertTrue(intermediateCert.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(intermediateCert.contains("-----END CERTIFICATE-----"));
+        assertTrue(intermediateCert.contains("Pat Intermediate") || intermediateCert.contains("MIIC5TCCAk6gAwIBAgIBAT"));
+    }
+
+    @Test
+    public void getCertificateChain_WithNullKeyName_ShouldThrowException() throws IOException {
+        // Given: A temporary YAML configuration
+        String yamlContent = """
+            config:
+              primary-key: alice
+            keys:
+              alice:
+                keyId: alice-key-id
+                algorithm: ES256
+                curve: secp256r1
+            """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.write(yamlFile, yamlContent.getBytes());
+        
+        KeysService keysService = new KeysService();
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When & Then: Getting certificate chain with null key name should throw exception
+        assertThrows(IllegalArgumentException.class, () -> {
+            keysService.getCertificateChain(null);
+        });
+    }
+
+    @Test
+    public void getCertificateChain_WithInvalidKeyName_ShouldThrowException() throws IOException {
+        // Given: A temporary YAML configuration
+        String yamlContent = """
+            config:
+              primary-key: alice
+            keys:
+              alice:
+                keyId: alice-key-id
+                algorithm: ES256
+                curve: secp256r1
+            """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.write(yamlFile, yamlContent.getBytes());
+        
+        KeysService keysService = new KeysService();
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When & Then: Getting certificate chain with invalid key name should throw exception
+        assertThrows(IllegalArgumentException.class, () -> {
+            keysService.getCertificateChain("nonexistent");
+        });
     }
 
     
