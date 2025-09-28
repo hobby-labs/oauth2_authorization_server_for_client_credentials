@@ -160,5 +160,41 @@ class KeysServiceTest {
         assertEquals("ec-key-from-yaml", result);
     }
 
+    // ========== getPrimaryKeyAlgorithm() Tests ==========
+    
+    @Test
+    void getPrimaryKeyAlgorithm_WithValidConfiguration_ShouldReturnPrimaryKeyAlgorithm() throws IOException {
+        // Given: A YAML file with valid keys configuration including algorithm
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "ec-key-from-yaml"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getPrimaryKeyAlgorithm
+        String result = keysService.getPrimaryKeyAlgorithm();
+        
+        // Then: Should return the configured primary key algorithm
+        assertEquals("ES256", result);
+    }
+
     
 }
