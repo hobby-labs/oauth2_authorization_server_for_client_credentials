@@ -199,15 +199,6 @@ public class ClientsService {
                 yamlData = yaml.load(inputStream);
             }
             
-            if (yamlData == null) {
-                throw new IllegalStateException("Configuration file is empty or contains invalid YAML");
-            }
-            
-            logger.info("Successfully loaded YAML configuration");
-            
-        } catch (IllegalStateException e) {
-            // Re-throw IllegalStateException to preserve specific validation messages
-            throw e;
         } catch (IOException e) {
             logger.error("Failed to read clients configuration file {}: {}", clientsFilePath, e.getMessage());
             throw new IllegalStateException(
@@ -219,6 +210,14 @@ public class ClientsService {
                 "Invalid YAML syntax in clients configuration file " + clientsFilePath + 
                 ". Please check the YAML format and syntax.", e);
         }
+        
+        // Validate loaded data outside try-catch block
+        if (yamlData == null) {
+            throw new IllegalStateException("Configuration file is empty or contains invalid YAML");
+        }
+        
+        // Log success only after complete validation
+        logger.info("Successfully loaded YAML configuration");
     }
     
     /**
