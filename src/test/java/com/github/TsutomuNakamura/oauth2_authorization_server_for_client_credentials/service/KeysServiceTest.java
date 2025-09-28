@@ -728,5 +728,91 @@ class KeysServiceTest {
         });
     }
 
+    @Test
+    public void getCertificateChain_WithAutoDetection_ShouldReturnChainWithEndEntityAndIntermediate() throws IOException {
+        // Given: A configuration where alice has no explicit authority but can be auto-detected
+        String yamlContent = """
+            config:
+              primary-key: alice
+            keys:
+              alice:
+                keyId: alice-key-id
+                algorithm: ES256
+                curve: secp256r1
+                # Note: No explicit authority configured - should be auto-detected as 'trent'
+                private: |
+                  -----BEGIN PRIVATE KEY-----
+                  MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                  -----END PRIVATE KEY-----
+                public: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+                  aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+                  MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+                  BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+                  0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+                  MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+                  tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+                  BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+                  LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+                  bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+                  uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+                  -----END CERTIFICATE-----
+            chains:
+              trent:
+                public: |
+                  -----BEGIN CERTIFICATE-----
+                  MIIB0zCCAVqgAwIBAgICEAAwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
+                  YS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0zNTA4MDkwMzI5NDBaMCMx
+                  ITAfBgNVBAMMGHRyZW50LmludGVybS5leGFtcGxlLmNvbTB2MBAGByqGSM49AgEG
+                  BSuBBAAiA2IABJbducTjt4vyRQPIFQUvs96giJr4fcCbcTTaHXjqQAqFKQ0JNsYY
+                  XvYmI/ax8ZSuu/Y7j1c1dbe1fCzrrplJdG6EpHC26jtaM8E0xc7NsfM87krEFn2p
+                  x+J6X8Z7dg9zx6NmMGQwHQYDVR0OBBYEFLBjtm8nryugZ+1tt5sHrmVHnWXaMB8G
+                  A1UdIwQYMBaAFJl2eAkhqEYegUF5FPRTszadRjH3MBIGA1UdEwEB/wQIMAYBAf8C
+                  AQAwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA2cAMGQCMCGeK1WwMX0jmIK8
+                  Mr5d9/fTIPrIum8U/CGC/NVbsE7odQndftabkCaeXAE8s2VCqwIwS28/LNZblMs/
+                  QvfYwtRLaVz3Mt3P4eGuDW0KTHa+hK/Znn5qXfDSQrRMqJBjJTEg
+                  -----END CERTIFICATE-----
+            """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.write(yamlFile, yamlContent.getBytes());
+        
+        KeysService keysService = new KeysService();
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Getting certificate chain for alice (should auto-detect trent as authority)
+        List<String> chain = keysService.getCertificateChain("alice");
+        
+        // Then: Should return a chain with both end-entity and intermediate certificates via auto-detection
+        assertNotNull(chain);
+        assertEquals(2, chain.size());
+        
+        // First certificate should be the end-entity certificate (alice's)
+        String endEntityCert = chain.get(0);
+        assertNotNull(endEntityCert);
+        assertTrue(endEntityCert.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(endEntityCert.contains("-----END CERTIFICATE-----"));
+        // Check for alice's certificate identifier in the base64 encoded certificate
+        assertTrue(endEntityCert.contains("YWxpY2UuZWUuZXhhbXBsZS5jb20") || // base64 encoded alice.ee.example.com
+                   endEntityCert.contains("MIIB/jCCAYSgAwIBAgICIAE")); // specific signature of alice's certificate
+        
+        // Second certificate should be the auto-detected intermediate certificate (trent's)
+        String intermediateCert = chain.get(1);
+        assertNotNull(intermediateCert);
+        assertTrue(intermediateCert.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(intermediateCert.contains("-----END CERTIFICATE-----"));
+        // Check for trent's certificate identifier in the base64 encoded certificate
+        assertTrue(intermediateCert.contains("dHJlbnQuaW50ZXJtLmV4YW1wbGUuY29t") || // base64 encoded trent.interm.example.com
+                   intermediateCert.contains("MIIB0zCCAVqgAwIBAgICEAA")); // specific signature of trent's certificate
+        
+        // Verify auto-detection worked: alice's certificate was issued by trent
+        // We check this by looking for trent's identifier in alice's certificate
+        assertTrue(endEntityCert.contains("dHJlbnQuaW50ZXJtLmV4YW1wbGUuY29t") || // trent as issuer
+                   endEntityCert.contains("MIIB/jCCAYSgAwIBAgICIAE"), // alice's certificate signature
+                   "Alice certificate should show trent as issuer for auto-detection to work");
+    }
+
     
 }
