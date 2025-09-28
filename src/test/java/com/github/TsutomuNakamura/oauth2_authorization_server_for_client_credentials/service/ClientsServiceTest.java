@@ -1059,5 +1059,234 @@ class ClientsServiceTest {
         assertEquals(Duration.ofMinutes(1), result);
     }
 
+    @Test
+    void getClientRoles_ClientDoesNotExist_ShouldReturnEmptyList() {
+        // Given: Uninitialized service (no clients configured)
+        
+        // When: Get roles for non-existent client
+        List<String> result = clientsService.getClientRoles("non-existent-client");
+        
+        // Then: Should return empty list
+        assertEquals(List.of(), result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getClientRoles_ClientExistsWithRoles_ShouldReturnActualRoles() throws IOException {
+        // Given: Client with specific roles configured
+        String yamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                roles: ["CLIENT", "INTROSPECTOR", "ADMIN"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get roles for configured client
+        List<String> result = clientsService.getClientRoles("test-client");
+        
+        // Then: Should return the configured roles
+        assertEquals(List.of("CLIENT", "INTROSPECTOR", "ADMIN"), result);
+    }
+
+    @Test
+    void getClientRoles_ClientExistsWithoutRoles_ShouldReturnEmptyList() throws IOException {
+        // Given: Client without roles field
+        String yamlContent = """
+            clients:
+              minimal-client:
+                client-id: "minimal-client-id"
+                client-secret: "minimal-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get roles for client without roles
+        List<String> result = clientsService.getClientRoles("minimal-client");
+        
+        // Then: Should return empty list
+        assertEquals(List.of(), result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getClientRoles_ClientExistsWithEmptyRoles_ShouldReturnEmptyList() throws IOException {
+        // Given: Client with empty roles array
+        String yamlContent = """
+            clients:
+              empty-roles-client:
+                client-id: "empty-client-id"
+                client-secret: "empty-client-secret"
+                roles: []
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get roles for client with empty roles
+        List<String> result = clientsService.getClientRoles("empty-roles-client");
+        
+        // Then: Should return empty list
+        assertEquals(List.of(), result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void getClientRoles_ClientExistsWithSingleRole_ShouldReturnSingleRole() throws IOException {
+        // Given: Client with single role
+        String yamlContent = """
+            clients:
+              single-role-client:
+                client-id: "single-client-id"
+                client-secret: "single-client-secret"
+                roles: ["USER"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get roles for client with single role
+        List<String> result = clientsService.getClientRoles("single-role-client");
+        
+        // Then: Should return the single role
+        assertEquals(List.of("USER"), result);
+    }
+
+    @Test
+    void clientHasRole_ClientDoesNotExist_ShouldReturnFalse() {
+        // Given: Uninitialized service (no clients configured)
+        
+        // When: Check if non-existent client has a role
+        boolean result = clientsService.clientHasRole("non-existent-client", "ADMIN");
+        
+        // Then: Should return false
+        assertFalse(result);
+    }
+
+    @Test
+    void clientHasRole_ClientExistsWithRole_ShouldReturnTrue() throws IOException {
+        // Given: Client with specific roles configured
+        String yamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                roles: ["CLIENT", "INTROSPECTOR", "ADMIN"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Check if client has existing role
+        boolean result = clientsService.clientHasRole("test-client", "ADMIN");
+        
+        // Then: Should return true
+        assertTrue(result);
+    }
+
+    @Test
+    void clientHasRole_ClientExistsWithoutRole_ShouldReturnFalse() throws IOException {
+        // Given: Client with specific roles configured
+        String yamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                roles: ["CLIENT", "INTROSPECTOR"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Check if client has non-existing role
+        boolean result = clientsService.clientHasRole("test-client", "ADMIN");
+        
+        // Then: Should return false
+        assertFalse(result);
+    }
+
+    @Test
+    void clientHasRole_ClientExistsWithNoRoles_ShouldReturnFalse() throws IOException {
+        // Given: Client without roles field
+        String yamlContent = """
+            clients:
+              minimal-client:
+                client-id: "minimal-client-id"
+                client-secret: "minimal-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Check if client has any role
+        boolean result = clientsService.clientHasRole("minimal-client", "USER");
+        
+        // Then: Should return false
+        assertFalse(result);
+    }
+
+    @Test
+    void clientHasRole_ClientExistsWithEmptyRoles_ShouldReturnFalse() throws IOException {
+        // Given: Client with empty roles array
+        String yamlContent = """
+            clients:
+              empty-roles-client:
+                client-id: "empty-client-id"
+                client-secret: "empty-client-secret"
+                roles: []
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Check if client has any role
+        boolean result = clientsService.clientHasRole("empty-roles-client", "USER");
+        
+        // Then: Should return false
+        assertFalse(result);
+    }
+
+    @Test
+    void clientHasRole_CaseSensitiveRoleCheck_ShouldWork() throws IOException {
+        // Given: Client with specific role
+        String yamlContent = """
+            clients:
+              case-client:
+                client-id: "case-client-id"
+                client-secret: "case-client-secret"
+                roles: ["Admin"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When & Then: Check case sensitivity
+        assertTrue(clientsService.clientHasRole("case-client", "Admin"));
+        assertFalse(clientsService.clientHasRole("case-client", "admin"));
+        assertFalse(clientsService.clientHasRole("case-client", "ADMIN"));
+    }
+
     
 }
