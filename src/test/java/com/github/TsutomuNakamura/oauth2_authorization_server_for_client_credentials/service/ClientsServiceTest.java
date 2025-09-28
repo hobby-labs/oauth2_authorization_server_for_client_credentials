@@ -8,6 +8,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -755,6 +756,204 @@ class ClientsServiceTest {
         
         String corruptResult = clientsService.getClientDisplayName("corrupt-client");
         assertEquals("corrupt-client", corruptResult, "Corrupt configuration should return clientName for getClientDisplayName");
+    }
+
+    @Test
+    void getClientAttribute_WithUnknownAttributeName_ShouldReturnDefaultValue() throws IOException {
+        // Given: A valid client configuration
+        String validYamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                client-name: "Test Client Display"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Call getClientAttribute with an unknown attribute name
+        // This tests the default case of the switch statement in getClientAttribute()
+        String result1 = ReflectionTestUtils.invokeMethod(clientsService, "getClientAttribute", 
+            "test-client", "unknown-attribute", "custom-default");
+        
+        // Then: Should return the default value
+        assertEquals("custom-default", result1, "Unknown attribute should return the provided default value");
+        
+        // Test with null default value
+        String result2 = ReflectionTestUtils.invokeMethod(clientsService, "getClientAttribute", 
+            "test-client", "another-unknown-attr", (String) null);
+        
+        assertNull(result2, "Unknown attribute with null default should return null");
+        
+        // Test with empty string default value
+        String result3 = ReflectionTestUtils.invokeMethod(clientsService, "getClientAttribute", 
+            "test-client", "yet-another-unknown", "");
+        
+        assertEquals("", result3, "Unknown attribute with empty string default should return empty string");
+    }
+
+    @Test
+    void getClientAttribute_WithUnknownAttributeAndNonExistentClient_ShouldReturnDefaultValue() {
+        // Given: Uninitialized service (no clients)
+        
+        // When: Call getClientAttribute with unknown attribute and non-existent client
+        // This tests the default case when both client doesn't exist and attribute is unknown
+        String result = ReflectionTestUtils.invokeMethod(clientsService, "getClientAttribute", 
+            "non-existent-client", "unknown-attribute", "fallback-value");
+        
+        // Then: Should return the default value (same behavior as when client doesn't exist)
+        assertEquals("fallback-value", result, "Non-existent client with unknown attribute should return default value");
+    }
+
+    @Test
+    void getClientAttribute_WithVariousUnknownAttributes_ShouldAlwaysReturnDefaultValue() throws IOException {
+        // Given: A client with all standard attributes
+        String yamlContent = """
+            clients:
+              full-client:
+                client-id: "full-client-id"
+                client-secret: "full-client-secret"
+                client-name: "Full Client Display"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // Test various unknown attribute names to ensure switch default case works consistently
+        String[] unknownAttributes = {
+            "unknown-field",
+            "client-description",
+            "client-url", 
+            "random-attribute",
+            "non-existent-field",
+            "invalid-attribute"
+        };
+        
+        String[] defaultValues = {
+            "default1",
+            "default2", 
+            "default3",
+            "default4",
+            "default5",
+            "default6"
+        };
+        
+        // When & Then: All unknown attributes should return their respective default values
+        for (int i = 0; i < unknownAttributes.length; i++) {
+            String result = ReflectionTestUtils.invokeMethod(clientsService, "getClientAttribute", 
+                "full-client", unknownAttributes[i], defaultValues[i]);
+            
+            assertEquals(defaultValues[i], result, 
+                String.format("Unknown attribute '%s' should return default value '%s'", 
+                    unknownAttributes[i], defaultValues[i]));
+        }
+    }
+
+    @Test
+    void getClientScopes_ClientDoesNotExist_ShouldReturnDefaultScope() {
+        // Given: Uninitialized service (no clients configured)
+        
+        // When: Get scopes for non-existent client
+        List<String> result = clientsService.getClientScopes("non-existent-client");
+        
+        // Then: Should return default scope "read"
+        assertEquals(List.of("read"), result);
+    }
+
+    @Test
+    void getClientScopes_ClientExistsWithScopes_ShouldReturnActualScopes() throws IOException {
+        // Given: Client with specific scopes configured
+        String yamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                scopes: ["read", "write", "admin"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get scopes for configured client
+        List<String> result = clientsService.getClientScopes("test-client");
+        
+        // Then: Should return the configured scopes
+        assertEquals(List.of("read", "write", "admin"), result);
+    }
+
+    @Test
+    void getClientScopes_ClientExistsWithoutScopes_ShouldReturnDefaultScope() throws IOException {
+        // Given: Client without scopes section
+        String yamlContent = """
+            clients:
+              minimal-client:
+                client-id: "minimal-client-id"
+                client-secret: "minimal-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get scopes for client without scopes
+        List<String> result = clientsService.getClientScopes("minimal-client");
+        
+        // Then: Should return default scope "read"
+        assertEquals(List.of("read"), result);
+    }
+
+    @Test
+    void getClientScopes_ClientExistsWithEmptyScopes_ShouldReturnDefaultScope() throws IOException {
+        // Given: Client with empty scopes array
+        String yamlContent = """
+            clients:
+              empty-scopes-client:
+                client-id: "empty-client-id"
+                client-secret: "empty-client-secret"
+                scopes: []
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get scopes for client with empty scopes
+        List<String> result = clientsService.getClientScopes("empty-scopes-client");
+        
+        // Then: Should return default scope "read"
+        assertEquals(List.of("read"), result);
+    }
+
+    @Test
+    void getClientScopes_ClientExistsWithSingleScope_ShouldReturnSingleScope() throws IOException {
+        // Given: Client with single scope
+        String yamlContent = """
+            clients:
+              single-scope-client:
+                client-id: "single-client-id"
+                client-secret: "single-client-secret"
+                scopes: ["write"]
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get scopes for client with single scope
+        List<String> result = clientsService.getClientScopes("single-scope-client");
+        
+        // Then: Should return the single scope
+        assertEquals(List.of("write"), result);
     }
 
     
