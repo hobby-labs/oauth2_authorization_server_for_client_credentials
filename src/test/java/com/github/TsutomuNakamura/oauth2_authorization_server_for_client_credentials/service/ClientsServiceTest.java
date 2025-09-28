@@ -298,5 +298,136 @@ class ClientsServiceTest {
         assertNull(result, "getClientConfig should return null when clientsConfiguration.getClients() is null");
     }
 
+    @Test
+    void getClientId_WithUninitializedService_ShouldReturnDefaultValue() {
+        // Given: ClientsService not initialized (clientsConfiguration is null)
+        // This targets line 332: return defaultValue when getClientConfig() returns null
+        
+        // When: Call getClientId without initializing the service first
+        String result = clientsService.getClientId("any-client-name");
+        
+        // Then: Should return null (the defaultValue passed to getClientAttribute)
+        assertNull(result, "getClientId should return null (defaultValue) when service is not initialized");
+    }
+
+    @Test
+    void getClientId_WithNonExistentClient_ShouldReturnDefaultValue() throws IOException {
+        // Given: Initialized service but requesting a non-existent client
+        String validYamlContent = """
+            clients:
+              existing-client:
+                client-id: "existing-client-id"
+                client-secret: "existing-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientId for non-existent client
+        String result = clientsService.getClientId("non-existent-client");
+        
+        // Then: Should return null (defaultValue) since getClientConfig returns null
+        assertNull(result, "getClientId should return null (defaultValue) for non-existent client");
+        
+        // But should return actual value for existing client
+        String existingClientId = clientsService.getClientId("existing-client");
+        assertEquals("existing-client-id", existingClientId, "getClientId should return actual client-id for existing client");
+    }
+
+    @Test
+    void getClientId_WithCorruptedClientConfiguration_ShouldReturnDefaultValue() {
+        // Given: Corrupted state where clientsConfiguration exists but getClients() returns null
+        // This ensures getClientConfig() returns null, triggering line 332 in getClientAttribute()
+        
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration mockConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", mockConfig);
+        
+        // When: Call getClientId
+        String result = clientsService.getClientId("any-client");
+        
+        // Then: Should return null (defaultValue) because getClientConfig() returns null
+        assertNull(result, "getClientId should return null (defaultValue) when clientsConfiguration.getClients() is null");
+    }
+
+    @Test
+    void getClientId_WithClientHavingNullClientId_ShouldReturnDefaultValue() throws IOException {
+        // Given: Client exists but has null client-id field
+        // This tests the case where getClientConfig() returns non-null but clientConfig.getClientId() returns null
+        String yamlWithNullClientId = """
+            clients:
+              client-with-null-id:
+                client-secret: "some-secret"
+                client-name: "Test Client"
+            """;
+        
+        Path configFile = tempDir.resolve("null-client-id.yml");
+        Files.writeString(configFile, yamlWithNullClientId);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // This will fail during init() due to validation, so we need to bypass validation
+        // Use reflection to set up the state manually
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration config = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto clientDto = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto();
+        // clientDto.setClientId(null) - if there were setters, but since clientId is null by default
+        
+        java.util.Map<String, com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto> clientsMap = 
+            new java.util.HashMap<>();
+        clientsMap.put("client-with-null-id", clientDto);
+        
+        // Use reflection to set the clients map
+        ReflectionTestUtils.setField(config, "clients", clientsMap);
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", config);
+        
+        // When: Call getClientId for client with null client-id
+        String result = clientsService.getClientId("client-with-null-id");
+        
+        // Then: Should return null (defaultValue) because clientConfig.getClientId() returns null
+        assertNull(result, "getClientId should return null (defaultValue) when client-id field is null");
+    }
+
+    @Test
+    void getClientId_MultipleScenarios_ShouldHandleAllDefaultValueCases() throws IOException {
+        // Given: Test multiple scenarios that should all return defaultValue (null)
+        
+        // Scenario 1: Uninitialized service
+        String uninitializedResult = clientsService.getClientId("any-client");
+        assertNull(uninitializedResult, "Uninitialized service should return null");
+        
+        // Scenario 2: Initialize service and test non-existent client  
+        String validYamlContent = """
+            clients:
+              valid-client:
+                client-id: "valid-id"
+                client-secret: "valid-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        String nonExistentResult = clientsService.getClientId("non-existent-client");
+        assertNull(nonExistentResult, "Non-existent client should return null");
+        
+        // Scenario 3: Valid client should return actual value (not defaultValue)
+        String validResult = clientsService.getClientId("valid-client");
+        assertEquals("valid-id", validResult, "Valid client should return actual client-id, not defaultValue");
+        
+        // Scenario 4: Corrupt state
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration corruptConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", corruptConfig);
+        
+        String corruptResult = clientsService.getClientId("any-client");
+        assertNull(corruptResult, "Corrupt configuration should return null");
+    }
+
     
 }
