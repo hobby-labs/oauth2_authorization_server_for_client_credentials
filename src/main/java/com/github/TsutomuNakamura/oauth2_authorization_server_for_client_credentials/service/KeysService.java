@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.security.KeyPair;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -479,12 +481,8 @@ public class KeysService {
      * @return the public key PEM string or null if not found
      */
     public String getPublicKey(String keyName) {
-        try {
-            KeyConfiguration keyConfig = getKeyConfig(keyName);
-            return keyConfig.getPublicKey();
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        KeyConfiguration keyConfig = getKeyConfig(keyName);
+        return keyConfig.getPublicKey();
     }
     
     /**
@@ -497,8 +495,8 @@ public class KeysService {
      * @param keyName the name of the key to build the chain for
      * @return List of certificate PEM strings [end-entity, intermediate] or empty list
      */
-    public java.util.List<String> getCertificateChain(String keyName) {
-        java.util.List<String> chain = new java.util.ArrayList<>();
+    public List<String> getCertificateChain(String keyName) {
+        List<String> chain = new ArrayList<>();
         
         // Get the end-entity certificate
         String endEntityCert = getPublicKey(keyName);

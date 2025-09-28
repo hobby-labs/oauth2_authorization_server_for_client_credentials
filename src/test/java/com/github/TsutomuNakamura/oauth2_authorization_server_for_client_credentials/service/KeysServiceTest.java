@@ -429,5 +429,175 @@ class KeysServiceTest {
         assertEquals("trent", result);
     }
 
+    // ========== getChainCertificate() Tests ==========
+    
+    @Test
+    void getChainCertificate_WithNullAuthorityName_ShouldReturnNull() throws IOException {
+        // Given: Any valid configuration (authority name is null)
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getChainCertificate with null authority name
+        String result = keysService.getChainCertificate(null);
+        
+        // Then: Should return null
+        assertNull(result);
+    }
+    
+    @Test
+    void getChainCertificate_WithNullChains_ShouldReturnNull() throws IOException {
+        // Given: A YAML configuration without chains section
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getChainCertificate with valid authority name but no chains section
+        String result = keysService.getChainCertificate("trent");
+        
+        // Then: Should return null
+        assertNull(result);
+    }
+    
+    @Test
+    void getChainCertificate_WithNullChainData_ShouldReturnNull() throws IOException {
+        // Given: A YAML configuration with chains section but missing specific authority
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                chains:
+                  pat:
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIBpatcertificatedata
+                      -----END CERTIFICATE-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getChainCertificate with authority name that doesn't exist in chains
+        String result = keysService.getChainCertificate("trent");
+        
+        // Then: Should return null
+        assertNull(result);
+    }
+    
+    @Test
+    void getChainCertificate_WithValidConfiguration_ShouldReturnPublicKey() throws IOException {
+        // Given: A YAML configuration with valid chains section
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                chains:
+                  trent:
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIBtrentcertificatedata
+                      -----END CERTIFICATE-----
+                  pat:
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIBpatcertificatedata
+                      -----END CERTIFICATE-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getChainCertificate with valid authority name
+        String result = keysService.getChainCertificate("trent");
+        
+        // Then: Should return the public key from chainData
+        assertNotNull(result);
+        assertTrue(result.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(result.contains("MIIBtrentcertificatedata"));
+        assertTrue(result.contains("-----END CERTIFICATE-----"));
+    }
+
+    // ========== getPublicKey() Tests ==========
+    
+    @Test
+    void getPublicKey_WithValidConfiguration_ShouldReturnPublicKey() throws IOException {
+        // Given: A YAML file with valid keys configuration including public key
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+                      aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+                      MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+                      BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+                      0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+                      MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+                      tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+                      BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+                      LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+                      bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+                      uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+                      -----END CERTIFICATE-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getPublicKey with valid key name
+        String result = keysService.getPublicKey("alice");
+        
+        // Then: Should return the public key without any errors
+        assertNotNull(result);
+        assertTrue(result.contains("-----BEGIN CERTIFICATE-----"));
+        assertTrue(result.contains("-----END CERTIFICATE-----"));
+        // Check that it contains actual certificate content
+        assertTrue(result.contains("MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef") ||
+                   result.contains("MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwI") ||
+                   result.length() > 100); // At least verify it has substantial content
+    }
+
     
 }
