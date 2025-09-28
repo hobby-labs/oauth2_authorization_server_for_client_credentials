@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 
 import jakarta.annotation.PostConstruct;
@@ -71,15 +74,6 @@ public class ClientsService {
     /** The field name for client display name in client configurations. */
     private static final String CLIENT_NAME_FIELD = "client-name";
     
-    /** The field name for OAuth2 scopes in client configurations. */
-    private static final String SCOPES_FIELD = "scopes";
-    
-    /** The field name for access token time-to-live in client configurations. */
-    private static final String ACCESS_TOKEN_TTL_FIELD = "access-token-ttl";
-    
-    /** The field name for client roles in client configurations. */
-    private static final String ROLES_FIELD = "roles";
-    
     /** The prefix used to identify classpath resources in file paths. */
     private static final String CLASSPATH_PREFIX = "classpath:";
     
@@ -100,8 +94,8 @@ public class ClientsService {
     /** Raw YAML data loaded from the configuration file. */
     private Map<String, Object> yamlData;
     
-    /** Cached clients section for efficient access. */
-    private Map<String, Object> clientsSection;
+    /** Cached clients configuration for efficient access. */
+    private ClientsConfiguration clientsConfiguration;
     
     /**
      * Validates that a required string field is not null or empty.
@@ -115,28 +109,6 @@ public class ClientsService {
         if (fieldValue == null || fieldValue.trim().isEmpty()) {
             throw new IllegalStateException(
                 "Client '" + clientName + "' is missing required field '" + fieldName + "'");
-        }
-    }
-    
-    /**
-     * Validates that an optional field has the expected type.
-     * 
-     * @param clientName the name of the client being validated
-     * @param fieldValue the field value to validate (can be null)
-     * @param fieldName the name of the field for error messages
-     * @param expectedType the expected type of the field
-     * @throws IllegalStateException if the field exists but has wrong type
-     */
-    private void validateFieldType(String clientName, Object fieldValue, String fieldName, Class<?> expectedType) {
-        if (fieldValue != null && !expectedType.isInstance(fieldValue)) {
-            String expectedTypeName = expectedType.getSimpleName().toLowerCase();
-            if (expectedType == List.class) {
-                expectedTypeName = "list";
-            } else if (expectedType == Integer.class) {
-                expectedTypeName = "integer";
-            }
-            throw new IllegalStateException(
-                "Client '" + clientName + "' has invalid '" + fieldName + "' field. Expected " + expectedTypeName + ".");
         }
     }
     
@@ -223,12 +195,11 @@ public class ClientsService {
     /**
      * Extracts and caches the clients section from the loaded YAML data.
      * 
-     * <p>This method is called once during initialization to cache the clients
-     * section for efficient repeated access.</p>
+     * <p>This method is called once during initialization to convert the raw YAML data
+     * into type-safe DTOs for efficient repeated access.</p>
      * 
      * @throws IllegalStateException if the clients section is not found in the configuration
      */
-    @SuppressWarnings("unchecked")
     private void extractClientsSection() {
         Object clientsData = yamlData.get(CLIENTS_SECTION);
         if (clientsData == null) {
@@ -239,8 +210,15 @@ public class ClientsService {
         
         validateMapConfiguration(clientsData, "'clients' section", "configuration file " + clientsFilePath);
         
-        clientsSection = (Map<String, Object>) clientsData;
-        logger.debug("Extracted clients section with {} entries", clientsSection.size());
+        // Convert to type-safe DTOs using Jackson ObjectMapper
+        ObjectMapper mapper = new ObjectMapper();
+        clientsConfiguration = mapper.convertValue(yamlData, ClientsConfiguration.class);
+        
+        if (clientsConfiguration == null || clientsConfiguration.getClients() == null) {
+            throw new IllegalStateException("Failed to parse clients configuration into type-safe structure");
+        }
+        
+        logger.debug("Extracted clients section with {} entries", clientsConfiguration.getClients().size());
     }
     
     /**
@@ -257,18 +235,17 @@ public class ClientsService {
      * @throws IllegalStateException if validation fails
      */
     private void validateConfiguration() {
-        if (clientsSection.isEmpty()) {
+        if (clientsConfiguration.getClients().isEmpty()) {
             throw new IllegalStateException(
                 "No clients configured in " + clientsFilePath + 
                 ". At least one client must be configured.");
         }
         
-        for (Map.Entry<String, Object> entry : clientsSection.entrySet()) {
-            String clientName = entry.getKey();
+        for (String clientName : clientsConfiguration.getClients().keySet()) {
             validateClient(clientName);
         }
         
-        logger.info("Validated {} client configuration(s)", clientsSection.size());
+        logger.info("Validated {} client configuration(s)", clientsConfiguration.getClients().size());
     }
     
     /**
@@ -277,50 +254,23 @@ public class ClientsService {
      * @param clientName the name of the client to validate
      * @throws IllegalStateException if the client configuration is invalid
      */
-    @SuppressWarnings("unchecked")
     private void validateClient(String clientName) {
-        Object clientData = clientsSection.get(clientName);
-        validateMapConfiguration(clientData, "configuration for client '" + clientName + "'", "clients section");
-        
-        Map<String, Object> clientConfig = (Map<String, Object>) clientData;
+        ClientDto clientDto = clientsConfiguration.getClients().get(clientName);
+        if (clientDto == null) {
+            throw new IllegalStateException("Client '" + clientName + "' not found in configuration");
+        }
         
         // Validate required fields using utility method
-        String clientId = (String) clientConfig.get(CLIENT_ID_FIELD);
+        String clientId = clientDto.getClientId();
         validateRequiredStringField(clientName, clientId, CLIENT_ID_FIELD);
         
-        String clientSecret = (String) clientConfig.get(CLIENT_SECRET_FIELD);
+        String clientSecret = clientDto.getClientSecret();
         validateRequiredStringField(clientName, clientSecret, CLIENT_SECRET_FIELD);
         
-        // Validate optional fields have correct types
-        validateOptionalFields(clientName, clientConfig);
+        // Validate optional fields have correct types - DTOs already handle type safety
+        // No need for additional type validation since DTOs provide compile-time type safety
         
         logger.debug("Validated client '{}' (ID: {})", clientName, clientId);
-    }
-    
-    /**
-     * Validates optional fields in a client configuration.
-     * 
-     * @param clientName the name of the client being validated
-     * @param clientConfig the client configuration map
-     */
-    private void validateOptionalFields(String clientName, Map<String, Object> clientConfig) {
-        // Validate scopes field type using utility method
-        Object scopes = clientConfig.get(SCOPES_FIELD);
-        if (scopes != null) {
-            validateFieldType(clientName, scopes, SCOPES_FIELD, List.class);
-        }
-        
-        // Validate roles field type using utility method
-        Object roles = clientConfig.get(ROLES_FIELD);
-        if (roles != null) {
-            validateFieldType(clientName, roles, ROLES_FIELD, List.class);
-        }
-        
-        // Validate access-token-ttl field type using utility method
-        Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
-        if (ttl != null) {
-            validateFieldType(clientName, ttl, ACCESS_TOKEN_TTL_FIELD, Integer.class);
-        }
     }
     
     /**
@@ -350,22 +300,22 @@ public class ClientsService {
      * 
      * @return a Map of all client configurations, never null
      */
-    public Map<String, Object> getAllClients() {
-        return clientsSection != null ? clientsSection : Map.of();
+    public Map<String, ClientDto> getAllClients() {
+        return clientsConfiguration != null && clientsConfiguration.getClients() != null ? 
+            clientsConfiguration.getClients() : Map.of();
     }
     
     /**
      * Retrieves the configuration for a specific OAuth2 client by name.
      * 
      * @param clientName the name of the client to retrieve configuration for
-     * @return the client configuration as a Map, or null if not found
+     * @return the client configuration as a ClientDto, or null if not found
      */
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> getClientConfig(String clientName) {
-        if (clientsSection == null) {
+    public ClientDto getClientConfig(String clientName) {
+        if (clientsConfiguration == null || clientsConfiguration.getClients() == null) {
             return null;
         }
-        return (Map<String, Object>) clientsSection.get(clientName);
+        return clientsConfiguration.getClients().get(clientName);
     }
     
     /**
@@ -377,12 +327,18 @@ public class ClientsService {
      * @return the attribute value or default
      */
     private String getClientAttribute(String clientName, String attributeName, String defaultValue) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
+        ClientDto clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
             return defaultValue;
         }
-        Object value = clientConfig.get(attributeName);
-        return value != null ? value.toString() : defaultValue;
+        
+        // Map attribute names to DTO getters
+        return switch (attributeName) {
+            case CLIENT_ID_FIELD -> clientConfig.getClientId() != null ? clientConfig.getClientId() : defaultValue;
+            case CLIENT_SECRET_FIELD -> clientConfig.getClientSecret() != null ? clientConfig.getClientSecret() : defaultValue;
+            case CLIENT_NAME_FIELD -> clientConfig.getClientName() != null ? clientConfig.getClientName() : defaultValue;
+            default -> defaultValue;
+        };
     }
 
     /**
@@ -421,18 +377,14 @@ public class ClientsService {
      * @param clientName the name of the client
      * @return a List of scopes, or default scope if not configured
      */
-    @SuppressWarnings("unchecked")
     public List<String> getClientScopes(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
+        ClientDto clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
             return List.of(DEFAULT_SCOPE);
         }
         
-        Object scopes = clientConfig.get(SCOPES_FIELD);
-        if (scopes instanceof List) {
-            return (List<String>) scopes;
-        }
-        return List.of(DEFAULT_SCOPE);
+        List<String> scopes = clientConfig.getScopes();
+        return scopes != null && !scopes.isEmpty() ? scopes : List.of(DEFAULT_SCOPE);
     }
     
     /**
@@ -442,16 +394,13 @@ public class ClientsService {
      * @return the TTL as Duration, or default if not configured
      */
     public Duration getAccessTokenTtl(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
+        ClientDto clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
             return DEFAULT_TTL;
         }
         
-        Object ttl = clientConfig.get(ACCESS_TOKEN_TTL_FIELD);
-        if (ttl instanceof Integer) {
-            return Duration.ofMinutes((Integer) ttl);
-        }
-        return DEFAULT_TTL;
+        Integer ttl = clientConfig.getAccessTokenTtl();
+        return ttl != null ? Duration.ofMinutes(ttl) : DEFAULT_TTL;
     }
     
     /**
@@ -460,18 +409,14 @@ public class ClientsService {
      * @param clientName the name of the client
      * @return a List of roles, or empty list if not configured
      */
-    @SuppressWarnings("unchecked")
     public List<String> getClientRoles(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
+        ClientDto clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
             return List.of();
         }
         
-        Object roles = clientConfig.get(ROLES_FIELD);
-        if (roles instanceof List) {
-            return (List<String>) roles;
-        }
-        return List.of();
+        List<String> roles = clientConfig.getRoles();
+        return roles != null ? roles : List.of();
     }
     
     /**
@@ -493,7 +438,7 @@ public class ClientsService {
      * @throws IllegalArgumentException if client not found or invalid
      */
     public ClientConfiguration getClientConfiguration(String clientName) {
-        Map<String, Object> clientConfig = getClientConfig(clientName);
+        ClientDto clientConfig = getClientConfig(clientName);
         if (clientConfig == null) {
             throw new IllegalArgumentException("Client '" + clientName + "' not found in configuration");
         }

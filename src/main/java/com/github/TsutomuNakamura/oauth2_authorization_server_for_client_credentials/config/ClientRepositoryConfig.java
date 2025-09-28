@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.server.authorization.client.InMemoryR
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.factory.RegisteredClientFactory;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.service.ClientsService;
@@ -107,7 +108,7 @@ public class ClientRepositoryConfig {
     public RegisteredClientRepository registeredClientRepository() {
         logger.info("Initializing OAuth2 client repository...");
         
-        Map<String, Object> allClients = clientsService.getAllClients();
+        Map<String, ClientDto> allClients = clientsService.getAllClients();
         validateClientsConfiguration(allClients);
         
         List<RegisteredClient> clients = buildRegisteredClients(allClients);
@@ -123,7 +124,7 @@ public class ClientRepositoryConfig {
      * @param allClients the map of all client configurations
      * @throws IllegalStateException if no clients are configured
      */
-    private void validateClientsConfiguration(Map<String, Object> allClients) {
+    private void validateClientsConfiguration(Map<String, ClientDto> allClients) {
         if (allClients.isEmpty()) {
             String errorMessage = "No OAuth2 clients configured in clients.yml. " +
                 "Application requires at least one client to be defined in the configuration file.";
@@ -142,7 +143,7 @@ public class ClientRepositoryConfig {
      * @param allClients the map of all client configurations
      * @return a list of successfully registered clients
      */
-    private List<RegisteredClient> buildRegisteredClients(Map<String, Object> allClients) {
+    private List<RegisteredClient> buildRegisteredClients(Map<String, ClientDto> allClients) {
         List<RegisteredClient> clients = new ArrayList<>();
         
         for (String clientName : allClients.keySet()) {
