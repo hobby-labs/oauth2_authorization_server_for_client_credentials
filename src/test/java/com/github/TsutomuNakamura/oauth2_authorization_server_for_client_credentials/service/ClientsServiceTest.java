@@ -579,5 +579,183 @@ class ClientsServiceTest {
         assertNull(corruptResult, "Corrupt configuration should return null for getClientSecret");
     }
 
+    @Test
+    void getClientDisplayName_WithUninitializedService_ShouldReturnDefaultValue() {
+        // Given: ClientsService not initialized (clientsConfiguration is null)
+        // This targets line 332: return defaultValue when getClientConfig() returns null
+        // Tests the CLIENT_NAME_FIELD case in the switch statement of getClientAttribute()
+        // Note: defaultValue for getClientDisplayName is the clientName itself
+        
+        // When: Call getClientDisplayName without initializing the service first
+        String result = clientsService.getClientDisplayName("test-client-name");
+        
+        // Then: Should return the clientName itself (the defaultValue for CLIENT_NAME_FIELD)
+        assertEquals("test-client-name", result, "getClientDisplayName should return clientName (defaultValue) when service is not initialized");
+    }
+
+    @Test
+    void getClientDisplayName_WithNonExistentClient_ShouldReturnDefaultValue() throws IOException {
+        // Given: Initialized service but requesting a non-existent client
+        // This tests the CLIENT_NAME_FIELD branch in getClientAttribute() switch statement
+        String validYamlContent = """
+            clients:
+              existing-client:
+                client-id: "existing-client-id"
+                client-secret: "existing-client-secret"
+                client-name: "Existing Client Display Name"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientDisplayName for non-existent client
+        String result = clientsService.getClientDisplayName("non-existent-client");
+        
+        // Then: Should return clientName itself (defaultValue) since getClientConfig returns null
+        assertEquals("non-existent-client", result, "getClientDisplayName should return clientName (defaultValue) for non-existent client");
+        
+        // But should return actual display name for existing client
+        String existingClientDisplayName = clientsService.getClientDisplayName("existing-client");
+        assertEquals("Existing Client Display Name", existingClientDisplayName, "getClientDisplayName should return actual client-name for existing client");
+    }
+
+    @Test
+    void getClientDisplayName_WithCorruptedClientConfiguration_ShouldReturnDefaultValue() {
+        // Given: Corrupted state where clientsConfiguration exists but getClients() returns null
+        // This ensures getClientConfig() returns null, triggering line 332 in getClientAttribute()
+        // Specifically tests the CLIENT_NAME_FIELD case
+        
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration mockConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", mockConfig);
+        
+        // When: Call getClientDisplayName
+        String result = clientsService.getClientDisplayName("test-client");
+        
+        // Then: Should return clientName itself (defaultValue) because getClientConfig() returns null
+        assertEquals("test-client", result, "getClientDisplayName should return clientName (defaultValue) when clientsConfiguration.getClients() is null");
+    }
+
+    @Test
+    void getClientDisplayName_WithClientHavingNullClientName_ShouldReturnDefaultValue() throws IOException {
+        // Given: Client exists but has null client-name field
+        // This tests the CLIENT_NAME_FIELD branch where clientConfig.getClientName() returns null
+        
+        // Use reflection to set up the state manually (since validation would allow this scenario)
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration config = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto clientDto = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto();
+        // clientDto.setClientName(null) - if there were setters, but since clientName is null by default
+        
+        java.util.Map<String, com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientDto> clientsMap = 
+            new java.util.HashMap<>();
+        clientsMap.put("client-without-display-name", clientDto);
+        
+        // Use reflection to set the clients map
+        ReflectionTestUtils.setField(config, "clients", clientsMap);
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", config);
+        
+        // When: Call getClientDisplayName for client with null client-name
+        String result = clientsService.getClientDisplayName("client-without-display-name");
+        
+        // Then: Should return clientName itself (defaultValue) because clientConfig.getClientName() returns null
+        // This tests the CLIENT_NAME_FIELD -> ... != null ? ... : defaultValue logic
+        assertEquals("client-without-display-name", result, "getClientDisplayName should return clientName (defaultValue) when client-name field is null");
+    }
+
+    @Test
+    void getClientDisplayName_WithValidClientName_ShouldReturnActualValue() throws IOException {
+        // Given: Properly configured client with valid client-name
+        // This tests the successful path of the CLIENT_NAME_FIELD case
+        String validYamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                client-name: "My Test Client Display Name"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientDisplayName for valid client
+        String result = clientsService.getClientDisplayName("test-client");
+        
+        // Then: Should return the actual client-name value (not defaultValue)
+        assertEquals("My Test Client Display Name", result, "getClientDisplayName should return actual client-name value for valid client");
+    }
+
+    @Test
+    void getClientDisplayName_WithClientMissingDisplayName_ShouldReturnClientNameAsDefault() throws IOException {
+        // Given: Client exists but has no client-name field defined in YAML
+        // This is a realistic scenario where client-name is optional
+        String yamlWithoutDisplayName = """
+            clients:
+              minimal-client:
+                client-id: "minimal-client-id"
+                client-secret: "minimal-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlWithoutDisplayName);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // Initialize the service
+        clientsService.init();
+        
+        // When: Call getClientDisplayName for client without display name
+        String result = clientsService.getClientDisplayName("minimal-client");
+        
+        // Then: Should return the clientName itself as the default
+        assertEquals("minimal-client", result, "getClientDisplayName should return clientName as default when client-name field is not provided");
+    }
+
+    @Test
+    void getClientDisplayName_MultipleScenarios_ShouldHandleAllClientNameCases() throws IOException {
+        // Given: Test multiple scenarios for CLIENT_NAME_FIELD coverage
+        
+        // Scenario 1: Uninitialized service
+        String uninitializedResult = clientsService.getClientDisplayName("uninitialized-client");
+        assertEquals("uninitialized-client", uninitializedResult, "Uninitialized service should return clientName for getClientDisplayName");
+        
+        // Scenario 2: Initialize service and test non-existent client  
+        String validYamlContent = """
+            clients:
+              valid-client:
+                client-id: "valid-id"
+                client-secret: "valid-secret"
+                client-name: "Valid Client Display"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, validYamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        String nonExistentResult = clientsService.getClientDisplayName("non-existent-client");
+        assertEquals("non-existent-client", nonExistentResult, "Non-existent client should return clientName for getClientDisplayName");
+        
+        // Scenario 3: Valid client should return actual display name (not defaultValue)
+        String validResult = clientsService.getClientDisplayName("valid-client");
+        assertEquals("Valid Client Display", validResult, "Valid client should return actual client-name, not defaultValue");
+        
+        // Scenario 4: Corrupt state
+        com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration corruptConfig = 
+            new com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ClientsConfiguration();
+        ReflectionTestUtils.setField(clientsService, "clientsConfiguration", corruptConfig);
+        
+        String corruptResult = clientsService.getClientDisplayName("corrupt-client");
+        assertEquals("corrupt-client", corruptResult, "Corrupt configuration should return clientName for getClientDisplayName");
+    }
+
     
 }
