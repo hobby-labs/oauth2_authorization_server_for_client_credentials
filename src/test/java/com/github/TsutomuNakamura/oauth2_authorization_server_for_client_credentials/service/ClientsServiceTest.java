@@ -57,4 +57,47 @@ class ClientsServiceTest {
         assertEquals(1, clientsService.getAllClients().size());
         assertTrue(clientsService.getAllClients().containsKey("test-client"));
     }
+
+    @Test
+    void init_WithEmptyYamlFile_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create an empty YAML file (results in null yamlData)
+        String emptyYamlContent = "";
+        
+        Path configFile = tempDir.resolve("empty-clients.yml");
+        Files.writeString(configFile, emptyYamlContent);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message indicates the issue with YAML configuration
+        assertTrue(exception.getMessage().contains("Configuration file is empty or contains invalid YAML"));
+    }
+
+    @Test
+    void init_WithInvalidYamlSyntax_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create a YAML file with invalid syntax
+        String invalidYamlContent = """
+                clients:
+                  - client-id: test-client
+                    invalid-syntax: [unclosed bracket
+                    scopes: ["read"]
+                """;
+        
+        Path configFile = tempDir.resolve("invalid-clients.yml");
+        Files.writeString(configFile, invalidYamlContent);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message indicates YAML syntax error
+        assertTrue(exception.getMessage().contains("Invalid YAML syntax"));
+    }
 }

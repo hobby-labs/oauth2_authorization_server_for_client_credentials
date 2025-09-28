@@ -8,10 +8,12 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.error.YAMLException;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 
 import jakarta.annotation.PostConstruct;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Map;
@@ -202,11 +204,20 @@ public class ClientsService {
             }
             
             logger.info("Successfully loaded YAML configuration");
-        } catch (Exception e) {
-            logger.error("Failed to load clients configuration from {}: {}", clientsFilePath, e.getMessage());
+            
+        } catch (IllegalStateException e) {
+            // Re-throw IllegalStateException to preserve specific validation messages
+            throw e;
+        } catch (IOException e) {
+            logger.error("Failed to read clients configuration file {}: {}", clientsFilePath, e.getMessage());
             throw new IllegalStateException(
-                "Could not load clients configuration from " + clientsFilePath + 
-                ". Application cannot start without valid client configuration.", e);
+                "Could not read clients configuration from " + clientsFilePath + 
+                ". Check if the file exists and is readable.", e);
+        } catch (YAMLException e) {
+            logger.error("Invalid YAML syntax in clients configuration file {}: {}", clientsFilePath, e.getMessage());
+            throw new IllegalStateException(
+                "Invalid YAML syntax in clients configuration file " + clientsFilePath + 
+                ". Please check the YAML format and syntax.", e);
         }
     }
     
