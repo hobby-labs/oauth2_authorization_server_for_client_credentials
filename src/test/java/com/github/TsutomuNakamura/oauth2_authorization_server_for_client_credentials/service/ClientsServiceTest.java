@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
 import org.springframework.core.io.Resource;
@@ -1899,6 +1900,273 @@ class ClientsServiceTest {
         
         // Note: We can't easily test the logging message without additional setup,
         // but we can verify the validation completed successfully by not throwing
+    }
+
+    // ========== validateMapConfiguration() Tests (Private Method via Reflection) ==========
+    
+    @Test
+    void validateMapConfiguration_WithValidMap_ShouldSucceed() {
+        // Given: A valid Map object
+        Map<String, Object> validMap = Map.of(
+            "key1", "value1",
+            "key2", "value2",
+            "key3", Map.of("nested", "map")
+        );
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            validMap, 
+            "test configuration", 
+            "test context"
+        ));
+    }
+
+    @Test
+    void validateMapConfiguration_WithEmptyMap_ShouldSucceed() {
+        // Given: An empty Map object
+        Map<String, Object> emptyMap = Map.of();
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            emptyMap, 
+            "empty configuration", 
+            "test context"
+        ));
+    }
+
+    @Test
+    void validateMapConfiguration_WithHashMap_ShouldSucceed() {
+        // Given: A HashMap implementation
+        Map<String, Object> hashMap = new java.util.HashMap<>();
+        hashMap.put("client1", Map.of("id", "test-id"));
+        hashMap.put("client2", Map.of("secret", "test-secret"));
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            hashMap, 
+            "clients section", 
+            "configuration file test.yml"
+        ));
+    }
+
+    @Test
+    void validateMapConfiguration_WithLinkedHashMap_ShouldSucceed() {
+        // Given: A LinkedHashMap implementation (commonly used by YAML parsers)
+        Map<String, Object> linkedHashMap = new java.util.LinkedHashMap<>();
+        linkedHashMap.put("ordered-key-1", "value1");
+        linkedHashMap.put("ordered-key-2", "value2");
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            linkedHashMap, 
+            "YAML configuration", 
+            "parsed YAML data"
+        ));
+    }
+
+    @Test
+    void validateMapConfiguration_WithStringInput_ShouldThrowException() {
+        // Given: A String object instead of Map
+        String stringInput = "not-a-map";
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                stringInput, 
+                "clients section", 
+                "configuration file clients.yml"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid clients section"));
+        assertTrue(exception.getMessage().contains("configuration file clients.yml"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithListInput_ShouldThrowException() {
+        // Given: A List object instead of Map
+        List<String> listInput = List.of("item1", "item2", "item3");
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                listInput, 
+                "configuration data", 
+                "YAML parsing context"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid configuration data"));
+        assertTrue(exception.getMessage().contains("YAML parsing context"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithNullInput_ShouldThrowException() {
+        // Given: A null object instead of Map
+        Object nullInput = null;
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                nullInput, 
+                "null configuration", 
+                "error handling test"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid null configuration"));
+        assertTrue(exception.getMessage().contains("error handling test"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithIntegerInput_ShouldThrowException() {
+        // Given: An Integer object instead of Map
+        Integer integerInput = 42;
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                integerInput, 
+                "numeric configuration", 
+                "type validation test"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid numeric configuration"));
+        assertTrue(exception.getMessage().contains("type validation test"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithBooleanInput_ShouldThrowException() {
+        // Given: A Boolean object instead of Map
+        Boolean booleanInput = true;
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                booleanInput, 
+                "boolean configuration", 
+                "type checking scenario"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid boolean configuration"));
+        assertTrue(exception.getMessage().contains("type checking scenario"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithArrayInput_ShouldThrowException() {
+        // Given: An array instead of Map
+        String[] arrayInput = {"element1", "element2", "element3"};
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                arrayInput, 
+                "array configuration", 
+                "array validation test"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid array configuration"));
+        assertTrue(exception.getMessage().contains("array validation test"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithComplexObjectInput_ShouldThrowException() {
+        // Given: A complex object that is not a Map
+        Object complexObject = new java.util.Date();
+        
+        // When & Then: Call validateMapConfiguration via reflection - should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(
+                clientsService, 
+                "validateMapConfiguration", 
+                complexObject, 
+                "date configuration", 
+                "complex object test"
+            ));
+        
+        // Verify the exception message contains expected elements
+        assertTrue(exception.getMessage().contains("Invalid date configuration"));
+        assertTrue(exception.getMessage().contains("complex object test"));
+        assertTrue(exception.getMessage().contains("Expected a map of configuration properties"));
+    }
+
+    @Test
+    void validateMapConfiguration_WithCustomMapImplementation_ShouldSucceed() {
+        // Given: A custom Map implementation
+        Map<String, Object> customMap = new java.util.TreeMap<>();
+        customMap.put("alpha", "first");
+        customMap.put("beta", "second");
+        customMap.put("gamma", "third");
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            customMap, 
+            "custom map implementation", 
+            "TreeMap validation test"
+        ));
+    }
+
+    @Test
+    void validateMapConfiguration_WithNestedMapStructure_ShouldSucceed() {
+        // Given: A nested Map structure (common in YAML configurations)
+        Map<String, Object> nestedMap = Map.of(
+            "clients", Map.of(
+                "client1", Map.of(
+                    "client-id", "id1",
+                    "client-secret", "secret1",
+                    "scopes", List.of("read", "write")
+                ),
+                "client2", Map.of(
+                    "client-id", "id2",
+                    "client-secret", "secret2",
+                    "roles", List.of("ADMIN")
+                )
+            ),
+            "settings", Map.of(
+                "timeout", 30,
+                "retries", 3
+            )
+        );
+        
+        // When & Then: Call validateMapConfiguration via reflection - should not throw
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(
+            clientsService, 
+            "validateMapConfiguration", 
+            nestedMap, 
+            "nested configuration structure", 
+            "complex YAML validation"
+        ));
     }
 
     
