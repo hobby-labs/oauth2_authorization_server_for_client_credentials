@@ -1640,5 +1640,266 @@ class ClientsServiceTest {
         assertInstanceOf(ClassPathResource.class, resource5);
     }
 
+    // ========== validateConfiguration() Tests (Private Method via Reflection) ==========
+    
+    @Test
+    void validateConfiguration_WithEmptyClients_ShouldThrowException() throws IOException {
+        // Given: A YAML file with empty clients section
+        String yaml = """
+                clients: {}
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("No clients configured"));
+        assertTrue(exception.getMessage().contains(yamlFile.toString()));
+        assertTrue(exception.getMessage().contains("At least one client must be configured"));
+    }
+
+    @Test
+    void validateConfiguration_WithSingleValidClient_ShouldSucceed() throws IOException {
+        // Given: A YAML file with one valid client
+        String yaml = """
+                clients:
+                  valid-client:
+                    client-id: "valid-id"
+                    client-secret: "valid-secret"
+                    client-name: "Valid Client"
+                    scopes: ["read", "write"]
+                    access-token-ttl: 30
+                    roles: ["CLIENT"]
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When: Call validateConfiguration via reflection
+        // Then: Should not throw any exception
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+    }
+
+    @Test
+    void validateConfiguration_WithMultipleValidClients_ShouldSucceed() throws IOException {
+        // Given: A YAML file with multiple valid clients
+        String yaml = """
+                clients:
+                  client-one:
+                    client-id: "id-one"
+                    client-secret: "secret-one"
+                    client-name: "Client One"
+                  client-two:
+                    client-id: "id-two"
+                    client-secret: "secret-two"
+                    client-name: "Client Two"
+                    scopes: ["admin"]
+                  client-three:
+                    client-id: "id-three"
+                    client-secret: "secret-three"
+                    access-token-ttl: 60
+                    roles: ["ADMIN", "USER"]
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When: Call validateConfiguration via reflection
+        // Then: Should not throw any exception
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+    }
+
+    @Test
+    void validateConfiguration_WithInvalidClient_ShouldThrowException() throws IOException {
+        // Given: A YAML file with one client missing required fields
+        String yaml = """
+                clients:
+                  invalid-client:
+                    client-name: "Invalid Client"
+                    scopes: ["read"]
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("Client 'invalid-client'"));
+        assertTrue(exception.getMessage().contains("missing required field"));
+    }
+
+    @Test
+    void validateConfiguration_WithMixedValidAndInvalidClients_ShouldThrowException() throws IOException {
+        // Given: A YAML file with both valid and invalid clients
+        String yaml = """
+                clients:
+                  valid-client:
+                    client-id: "valid-id"
+                    client-secret: "valid-secret"
+                  invalid-client:
+                    client-id: "missing-secret"
+                    # client-secret is missing
+                  another-valid-client:
+                    client-id: "another-id"
+                    client-secret: "another-secret"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException for the first invalid client
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("Client 'invalid-client'"));
+        assertTrue(exception.getMessage().contains("missing required field"));
+        assertTrue(exception.getMessage().contains("client-secret"));
+    }
+
+    @Test
+    void validateConfiguration_WithClientMissingClientId_ShouldThrowException() throws IOException {
+        // Given: A YAML file with client missing client-id
+        String yaml = """
+                clients:
+                  missing-id-client:
+                    client-secret: "has-secret"
+                    client-name: "Missing ID Client"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("Client 'missing-id-client'"));
+        assertTrue(exception.getMessage().contains("missing required field"));
+        assertTrue(exception.getMessage().contains("client-id"));
+    }
+
+    @Test
+    void validateConfiguration_WithClientHavingEmptyClientId_ShouldThrowException() throws IOException {
+        // Given: A YAML file with client having empty client-id
+        String yaml = """
+                clients:
+                  empty-id-client:
+                    client-id: ""
+                    client-secret: "has-secret"
+                    client-name: "Empty ID Client"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("Client 'empty-id-client'"));
+        assertTrue(exception.getMessage().contains("missing required field"));
+        assertTrue(exception.getMessage().contains("client-id"));
+    }
+
+    @Test
+    void validateConfiguration_WithClientHavingWhitespaceOnlyClientSecret_ShouldThrowException() throws IOException {
+        // Given: A YAML file with client having whitespace-only client-secret
+        String yaml = """
+                clients:
+                  whitespace-secret-client:
+                    client-id: "has-id"
+                    client-secret: "   "
+                    client-name: "Whitespace Secret Client"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When & Then: validateConfiguration should throw IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        assertTrue(exception.getMessage().contains("Client 'whitespace-secret-client'"));
+        assertTrue(exception.getMessage().contains("missing required field"));
+        assertTrue(exception.getMessage().contains("client-secret"));
+    }
+
+    @Test
+    void validateConfiguration_WithValidationSuccessLogging_ShouldLogCorrectCount() throws IOException {
+        // Given: A YAML file with exactly 3 valid clients
+        String yaml = """
+                clients:
+                  client-alpha:
+                    client-id: "alpha-id"
+                    client-secret: "alpha-secret"
+                  client-beta:
+                    client-id: "beta-id"
+                    client-secret: "beta-secret"
+                  client-gamma:
+                    client-id: "gamma-id"
+                    client-secret: "gamma-secret"
+                """;
+        Path yamlFile = tempDir.resolve("clients.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", yamlFile.toString());
+        
+        // Load and extract clients section (simulate partial initialization)
+        ReflectionTestUtils.invokeMethod(clientsService, "loadYamlConfiguration");
+        ReflectionTestUtils.invokeMethod(clientsService, "extractClientsSection");
+        
+        // When: Call validateConfiguration via reflection
+        // Then: Should not throw any exception (validation passes)
+        assertDoesNotThrow(() -> ReflectionTestUtils.invokeMethod(clientsService, "validateConfiguration"));
+        
+        // Note: We can't easily test the logging message without additional setup,
+        // but we can verify the validation completed successfully by not throwing
+    }
+
     
 }
