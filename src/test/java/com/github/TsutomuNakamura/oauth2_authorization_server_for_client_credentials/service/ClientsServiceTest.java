@@ -8,6 +8,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -954,6 +955,108 @@ class ClientsServiceTest {
         
         // Then: Should return the single scope
         assertEquals(List.of("write"), result);
+    }
+
+    @Test
+    void getAccessTokenTtl_ClientDoesNotExist_ShouldReturnDefaultTtl() {
+        // Given: Uninitialized service (no clients configured)
+        
+        // When: Get TTL for non-existent client
+        Duration result = clientsService.getAccessTokenTtl("non-existent-client");
+        
+        // Then: Should return default TTL of 5 minutes
+        assertEquals(Duration.ofMinutes(5), result);
+    }
+
+    @Test
+    void getAccessTokenTtl_ClientExistsWithTtl_ShouldReturnConfiguredTtl() throws IOException {
+        // Given: Client with specific access-token-ttl configured
+        String yamlContent = """
+            clients:
+              test-client:
+                client-id: "test-client-id"
+                client-secret: "test-client-secret"
+                access-token-ttl: 30
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get TTL for configured client
+        Duration result = clientsService.getAccessTokenTtl("test-client");
+        
+        // Then: Should return the configured TTL of 30 minutes
+        assertEquals(Duration.ofMinutes(30), result);
+    }
+
+    @Test
+    void getAccessTokenTtl_ClientExistsWithoutTtl_ShouldReturnDefaultTtl() throws IOException {
+        // Given: Client without access-token-ttl field
+        String yamlContent = """
+            clients:
+              minimal-client:
+                client-id: "minimal-client-id"
+                client-secret: "minimal-client-secret"
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get TTL for client without TTL field
+        Duration result = clientsService.getAccessTokenTtl("minimal-client");
+        
+        // Then: Should return default TTL of 5 minutes
+        assertEquals(Duration.ofMinutes(5), result);
+    }
+
+    @Test
+    void getAccessTokenTtl_ClientExistsWithLargeTtl_ShouldReturnConfiguredTtl() throws IOException {
+        // Given: Client with large TTL value
+        String yamlContent = """
+            clients:
+              long-ttl-client:
+                client-id: "long-ttl-client-id"
+                client-secret: "long-ttl-client-secret"
+                access-token-ttl: 1440
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get TTL for client with large TTL
+        Duration result = clientsService.getAccessTokenTtl("long-ttl-client");
+        
+        // Then: Should return the configured TTL of 1440 minutes (24 hours)
+        assertEquals(Duration.ofMinutes(1440), result);
+    }
+
+    @Test
+    void getAccessTokenTtl_ClientExistsWithShortTtl_ShouldReturnConfiguredTtl() throws IOException {
+        // Given: Client with short TTL value
+        String yamlContent = """
+            clients:
+              short-ttl-client:
+                client-id: "short-ttl-client-id"
+                client-secret: "short-ttl-client-secret"
+                access-token-ttl: 1
+            """;
+        
+        Path configFile = tempDir.resolve("clients.yml");
+        Files.writeString(configFile, yamlContent);
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        clientsService.init();
+        
+        // When: Get TTL for client with short TTL
+        Duration result = clientsService.getAccessTokenTtl("short-ttl-client");
+        
+        // Then: Should return the configured TTL of 1 minute
+        assertEquals(Duration.ofMinutes(1), result);
     }
 
     
