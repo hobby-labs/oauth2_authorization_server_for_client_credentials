@@ -100,4 +100,26 @@ class ClientsServiceTest {
         // Verify the exception message indicates YAML syntax error
         assertTrue(exception.getMessage().contains("Invalid YAML syntax"));
     }
+
+    @Test
+    void init_WithNonExistentFile_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Point to a non-existent file to trigger IOException
+        String nonExistentFilePath = tempDir.resolve("non-existent-directory")
+                                           .resolve("missing-file.yml").toString();
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", nonExistentFilePath);
+        
+        // When & Then: Call init method and expect IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message indicates file access error
+        assertTrue(exception.getMessage().contains("Could not read clients configuration from"));
+        assertTrue(exception.getMessage().contains("Check if the file exists and is readable"));
+        
+        // Verify the original IOException is preserved as the cause
+        assertNotNull(exception.getCause());
+        assertTrue(exception.getCause() instanceof IOException);
+    }
 }
