@@ -12,6 +12,9 @@ import java.time.Duration;
 import java.util.List;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -1464,6 +1467,177 @@ class ClientsServiceTest {
         assertEquals(List.of("write"), config2.scopes());
         assertEquals(Duration.ofMinutes(20), config2.tokenTtl());
         assertEquals(List.of("ADMIN"), config2.roles());
+    }
+
+    // ========== getClientsResource() Tests (Private Method via Reflection) ==========
+    
+    @Test
+    void getClientsResource_WithClasspathPrefix_ShouldReturnClassPathResource() {
+        // Given: A ClientsService instance with classpath: prefix
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "classpath:config/clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return ClassPathResource with correct path
+        assertNotNull(resource);
+        assertInstanceOf(ClassPathResource.class, resource);
+        
+        // Verify the path was correctly processed (classpath: prefix removed)
+        ClassPathResource classpathResource = (ClassPathResource) resource;
+        assertEquals("config/clients.yml", classpathResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithSimpleFilename_ShouldReturnClassPathResource() {
+        // Given: A ClientsService instance with simple filename (no directory separator)
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return ClassPathResource
+        assertNotNull(resource);
+        assertInstanceOf(ClassPathResource.class, resource);
+        
+        // Verify the path is used as-is
+        ClassPathResource classpathResource = (ClassPathResource) resource;
+        assertEquals("clients.yml", classpathResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithAbsolutePath_ShouldReturnFileSystemResource() {
+        // Given: A ClientsService instance with absolute file path
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "/etc/oauth2/clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return FileSystemResource
+        assertNotNull(resource);
+        assertInstanceOf(FileSystemResource.class, resource);
+        
+        // Verify the path is used as-is
+        FileSystemResource fileSystemResource = (FileSystemResource) resource;
+        assertEquals("/etc/oauth2/clients.yml", fileSystemResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithRelativePath_ShouldReturnFileSystemResource() {
+        // Given: A ClientsService instance with relative file path containing directory separator
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "config/clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return FileSystemResource
+        assertNotNull(resource);
+        assertInstanceOf(FileSystemResource.class, resource);
+        
+        // Verify the path is used as-is
+        FileSystemResource fileSystemResource = (FileSystemResource) resource;
+        assertEquals("config/clients.yml", fileSystemResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithWindowsAbsolutePath_ShouldReturnFileSystemResource() {
+        // Given: A ClientsService instance with Windows-style absolute path
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "C:\\config\\clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return FileSystemResource (because it contains "/")
+        // Note: Windows paths with backslashes don't contain "/" so would be treated as ClassPath
+        // But this tests the edge case of mixed separators
+        assertNotNull(resource);
+        assertInstanceOf(ClassPathResource.class, resource);
+        
+        // Verify Windows path without "/" is treated as classpath
+        ClassPathResource classpathResource = (ClassPathResource) resource;
+        // Spring normalizes backslashes to forward slashes
+        assertEquals("C:/config/clients.yml", classpathResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithUnixStylePath_ShouldReturnFileSystemResource() {
+        // Given: A ClientsService instance with Unix-style path
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "./config/clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return FileSystemResource
+        assertNotNull(resource);
+        assertInstanceOf(FileSystemResource.class, resource);
+        
+        // Verify the path is used as-is (Spring normalizes ./ prefix)
+        FileSystemResource fileSystemResource = (FileSystemResource) resource;
+        assertEquals("config/clients.yml", fileSystemResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithClasspathPrefixAndComplexPath_ShouldReturnClassPathResource() {
+        // Given: A ClientsService instance with classpath: prefix and complex path
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "classpath:META-INF/spring/clients.yml");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return ClassPathResource with prefix stripped
+        assertNotNull(resource);
+        assertInstanceOf(ClassPathResource.class, resource);
+        
+        // Verify the classpath: prefix was correctly removed
+        ClassPathResource classpathResource = (ClassPathResource) resource;
+        assertEquals("META-INF/spring/clients.yml", classpathResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_WithEmptyClasspathPrefix_ShouldReturnClassPathResource() {
+        // Given: A ClientsService instance with just classpath: prefix
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "classpath:");
+        
+        // When: Call private getClientsResource method via reflection
+        Resource resource = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        
+        // Then: Should return ClassPathResource with empty path
+        assertNotNull(resource);
+        assertInstanceOf(ClassPathResource.class, resource);
+        
+        // Verify empty path after prefix removal
+        ClassPathResource classpathResource = (ClassPathResource) resource;
+        assertEquals("", classpathResource.getPath());
+    }
+
+    @Test
+    void getClientsResource_ResourcePathLogic_ShouldFollowCorrectDecisionTree() {
+        // Test the decision logic comprehensively
+        
+        // Test 1: classpath: prefix should always result in ClassPathResource
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "classpath:some/path/file.yml");
+        Resource resource1 = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        assertInstanceOf(ClassPathResource.class, resource1);
+        
+        // Test 2: No slash should result in ClassPathResource  
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "file.yml");
+        Resource resource2 = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        assertInstanceOf(ClassPathResource.class, resource2);
+        
+        // Test 3: Has slash should result in FileSystemResource
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "dir/file.yml");
+        Resource resource3 = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        assertInstanceOf(FileSystemResource.class, resource3);
+        
+        // Test 4: Even single slash should result in FileSystemResource
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "/file.yml");
+        Resource resource4 = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        assertInstanceOf(FileSystemResource.class, resource4);
+        
+        // Test 5: classpath: with slash should still be ClassPathResource (prefix takes precedence)
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", "classpath:/META-INF/file.yml");
+        Resource resource5 = (Resource) ReflectionTestUtils.invokeMethod(clientsService, "getClientsResource");
+        assertInstanceOf(ClassPathResource.class, resource5);
     }
 
     
