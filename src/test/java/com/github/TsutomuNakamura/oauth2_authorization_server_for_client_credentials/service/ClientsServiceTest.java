@@ -122,4 +122,29 @@ class ClientsServiceTest {
         assertNotNull(exception.getCause());
         assertTrue(exception.getCause() instanceof IOException);
     }
+
+    @Test
+    void init_WithMissingClientsSection_ShouldThrowIllegalStateException() throws IOException {
+        // Given: Create a YAML file without 'clients' section (only other content)
+        String yamlWithoutClientsSection = """
+                config:
+                  settings: "some value"
+                other:
+                  data: "another value"
+                """;
+        
+        Path configFile = tempDir.resolve("no-clients-section.yml");
+        Files.writeString(configFile, yamlWithoutClientsSection);
+        
+        // Set the file path using reflection
+        ReflectionTestUtils.setField(clientsService, "clientsFilePath", configFile.toString());
+        
+        // When & Then: Call init method and expect IllegalStateException
+        IllegalStateException exception = assertThrows(IllegalStateException.class, 
+            () -> clientsService.init());
+        
+        // Verify the exception message indicates missing clients section
+        assertTrue(exception.getMessage().contains("No 'clients' section found"));
+        assertTrue(exception.getMessage().contains("Expected a 'clients:' section containing client definitions"));
+    }
 }
