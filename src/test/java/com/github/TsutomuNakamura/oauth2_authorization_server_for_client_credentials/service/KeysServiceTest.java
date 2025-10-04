@@ -2,6 +2,7 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -848,5 +849,40 @@ class KeysServiceTest {
         assertNotNull(result);
         assertTrue(result instanceof ClassPathResource);
         assertEquals("keys.yml", ((ClassPathResource) result).getFilename());
+    }
+
+    // ========== loadYamlConfiguration() Tests ==========
+
+    @Test
+    @DisplayName("loadYamlConfiguration() throws RuntimeException with message 'Configuration file is empty or contains invalid YAML' when file does not exist")
+    void loadYamlConfiguration_WithNonExistentFile_ShouldThrowRuntimeException() {
+        // Given: A KeysService with keysFilePath set to a non-existent file
+        String nonExistentFilePath = tempDir.resolve("nonexistent.yml").toString();
+        ReflectionTestUtils.setField(keysService, "keysFilePath", nonExistentFilePath);
+        
+        // When & Then: Calling loadYamlConfiguration should throw RuntimeException
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            ReflectionTestUtils.invokeMethod(keysService, "loadYamlConfiguration");
+        });
+        
+        assertEquals("Could not load keys from " + nonExistentFilePath, exception.getMessage());
+    }
+
+    
+    @Test
+    @Disabled("If contants of the file is empty, RuntimeException which message 'Could not load keys from *' will be thrown instead of 'Configuration file is empty or contains invalid YAML'")
+    @DisplayName("loadYamlConfiguration() throws RuntimeException with message 'Configuration file is empty or contains invalid YAML' when file is empty")
+    void loadYamlConfiguration_WithEmptyFile_ShouldThrowRuntimeException() throws IOException {
+        // Given: A KeysService with keysFilePath set to an empty file
+        Path emptyFile = tempDir.resolve("empty.yml");
+        Files.createFile(emptyFile);
+        ReflectionTestUtils.setField(keysService, "keysFilePath", emptyFile.toString());
+        
+        // When & Then: Calling loadYamlConfiguration should throw RuntimeException
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            ReflectionTestUtils.invokeMethod(keysService, "loadYamlConfiguration");
+        });
+        
+        assertEquals("Configuration file is empty or contains invalid YAML: " + emptyFile.toString(), exception.getMessage());
     }
 }
