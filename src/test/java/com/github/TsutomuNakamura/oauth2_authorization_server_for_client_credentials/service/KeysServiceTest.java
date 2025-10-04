@@ -867,10 +867,8 @@ class KeysServiceTest {
         
         assertEquals("Could not load keys from " + nonExistentFilePath, exception.getMessage());
     }
-
     
     @Test
-    @Disabled("If contants of the file is empty, RuntimeException which message 'Could not load keys from *' will be thrown instead of 'Configuration file is empty or contains invalid YAML'")
     @DisplayName("loadYamlConfiguration() throws RuntimeException with message 'Configuration file is empty or contains invalid YAML' when file is empty")
     void loadYamlConfiguration_WithEmptyFile_ShouldThrowRuntimeException() throws IOException {
         // Given: A KeysService with keysFilePath set to an empty file

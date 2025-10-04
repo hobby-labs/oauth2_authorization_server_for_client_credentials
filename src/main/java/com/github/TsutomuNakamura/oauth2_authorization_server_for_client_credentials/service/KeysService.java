@@ -12,6 +12,7 @@ import org.yaml.snakeyaml.Yaml;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.annotation.PostConstruct;
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.util.ArrayList;
@@ -143,41 +144,37 @@ public class KeysService {
      * {@link #getKeysResource()} and converts it to type-safe DTOs using Jackson's
      * ObjectMapper for reliable type conversion.</p>
      * 
-     * <p>Error Handling: Wraps any loading exceptions in RuntimeException with
-     * descriptive error messages including the file path.</p>
+     * <p>Error Handling: Throws RuntimeException with descriptive error messages
+     * for configuration issues. IOException is wrapped to include the file path context.</p>
      * 
      * @throws RuntimeException if the configuration file cannot be loaded or parsed
      */
     private void loadYamlConfiguration() {
-        try {
-            Resource resource = getKeysResource();
-            logger.debug("Loading keys configuration from resource: {}", resource);
-            
-            // Load YAML data using SnakeYAML
-            Yaml yaml = new Yaml();
-            Object yamlData;
-            try (InputStream inputStream = resource.getInputStream()) {
-                yamlData = yaml.load(inputStream);
-                if (yamlData == null) {
-                    throw new RuntimeException("Configuration file is empty or contains invalid YAML");
-                }
-            }
-            
-            // Convert to type-safe DTOs using Jackson
-            ObjectMapper mapper = new ObjectMapper();
-            keysConfiguration = mapper.convertValue(yamlData, KeysConfiguration.class);
-            
-            if (keysConfiguration == null) {
-                throw new RuntimeException("Failed to parse configuration into type-safe structure");
-            }
-            
-            int keysCount = keysConfiguration.getKeys() != null ? keysConfiguration.getKeys().size() : 0;
-            logger.debug("Successfully loaded keys configuration with {} keys", keysCount);
-            
-        } catch (Exception e) {
+        Resource resource = getKeysResource();
+        logger.debug("Loading keys configuration from resource: {}", resource);
+        
+        // Load YAML data using SnakeYAML
+        Yaml yaml = new Yaml();
+        Object yamlData;
+        try (InputStream inputStream = resource.getInputStream()) {
+            yamlData = yaml.load(inputStream);
+        } catch (IOException e) {
             logger.error("Failed to load keys from {}: {}", keysFilePath, e.getMessage());
             throw new RuntimeException("Could not load keys from " + keysFilePath, e);
         }
+        
+        if (yamlData == null) {
+            String message = "Configuration file is empty or contains invalid YAML: " + keysFilePath;
+            logger.error(message);
+            throw new RuntimeException(message);
+        }
+        
+        // Convert to type-safe DTOs using Jackson
+        ObjectMapper mapper = new ObjectMapper();
+        keysConfiguration = mapper.convertValue(yamlData, KeysConfiguration.class);
+        
+        int keysCount = keysConfiguration.getKeys() != null ? keysConfiguration.getKeys().size() : 0;
+        logger.debug("Successfully loaded keys configuration with {} keys", keysCount);
     }
     
     /**
