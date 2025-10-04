@@ -992,4 +992,75 @@ class KeysServiceTest {
         assertEquals("defaultAuthority", result);
     }
 
+    // ========== getKeyAttribute() Tests ==========
+    @Test
+    @DisplayName("getKeyAttribute() should return null when the keyName does not exist in key config")
+    void getKeyAttribute_WithNonExistentKey_ShouldReturnNull() throws IOException {
+        // Given: A YAML file with valid keys configuration
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getKeyAttribute with non-existent key name. But getKeyAttribute() is private, so we use reflection to invoke it.
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "getKeyAttribute", "nonexistent", "keyId", "defaultValue");
+        
+        // Then: Should return null
+        assertNull(result);
+    }
+
+    @Test
+    @DisplayName("getKeyAttribute() should return null when the attributeName does not match any known attributes")
+    void getKeyAttribute_WithUnknownAttribute_ShouldReturnNull() throws IOException {
+        // Given: A YAML file with valid keys configuration
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getKeyAttribute with unknown attribute. But getKeyAttribute() is private, so we use reflection to invoke it.
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "getKeyAttribute", "alice", "unknownAttribute", "defaultValue");
+        
+        // Then: Should return null
+        assertNull(result);
+    }
+
 }
