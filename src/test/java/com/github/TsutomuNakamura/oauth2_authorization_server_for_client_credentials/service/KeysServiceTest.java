@@ -2,6 +2,7 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -13,6 +14,8 @@ import java.util.Set;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ClassPathResource;
 
 class KeysServiceTest {
 
@@ -814,5 +817,36 @@ class KeysServiceTest {
                    "Alice certificate should show trent as issuer for auto-detection to work");
     }
 
-    
+    // ========== getKeysResource() Tests ==========
+
+    @Test
+    @DisplayName("getKeysResource() with keysFilePath which start with classpath: prefix should return resource from classpath")
+    void getKeysResource_WithClasspathPrefix_ShouldReturnClasspathResource() throws IOException {
+        // Given: A KeysService with keysFilePath set to a classpath resource
+        String classpathResource = "classpath:keys.yml";
+        ReflectionTestUtils.setField(keysService, "keysFilePath", classpathResource);
+        
+        // When: Calling getKeysResource. But getKeysResource() is private, so we use reflection to invoke it.
+        Resource result = (Resource) ReflectionTestUtils.invokeMethod(keysService, "getKeysResource");
+        // Then: Should return a ClassPathResource
+        assertNotNull(result);
+        assertTrue(result instanceof ClassPathResource);
+        assertEquals("keys.yml", ((ClassPathResource) result).getFilename());
+    }
+
+    @Test
+    @DisplayName("getKeysResource() with keysFilePath which start with relative path should return resource from classpath")
+    void getKeysResource_WithRelativePath_ShouldReturnClasspathResource() throws IOException {
+        // Given: A KeysService with keysFilePath set to a relative path
+        String relativePath = "keys.yml";
+        ReflectionTestUtils.setField(keysService, "keysFilePath", relativePath);
+        
+        // When: Calling getKeysResource. But getKeysResource() is private, so we use reflection to invoke it.
+        Resource result = (Resource) ReflectionTestUtils.invokeMethod(keysService, "getKeysResource");
+        
+        // Then: Should return a ClassPathResource
+        assertNotNull(result);
+        assertTrue(result instanceof ClassPathResource);
+        assertEquals("keys.yml", ((ClassPathResource) result).getFilename());
+    }
 }
