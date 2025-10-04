@@ -883,4 +883,113 @@ class KeysServiceTest {
         
         assertEquals("Configuration file is empty or contains invalid YAML: " + emptyFile.toString(), exception.getMessage());
     }
+
+    // ========== getPrimaryKeyAttribute() Tests ==========
+
+    @Test
+    @DisplayName("getPrimaryKeyAttribute() should return the result of keyConfig.getAuthority() when the attributeName equals 'authority'")
+    void getPrimaryKeyAttribute_WithAuthority_ShouldReturnAuthority() throws IOException {
+        // Given: A YAML file with valid keys configuration including authority
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    authority: "trent"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getPrimaryKeyAttribute with 'authority'. But getPrimaryKeyAttribute() is private, so we use reflection to invoke it.
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "getPrimaryKeyAttribute", "authority", "default");
+        // Then: Should return the configured authority
+        assertEquals("trent", result);
+    }
+
+    @Test
+    @DisplayName("getPrimaryKeyAttribute() should throw IllegalArgumentException when the attributeName does not match any known attributes")
+    void getPrimaryKeyAttribute_WithUnknownAttribute_ShouldThrowIllegalArgumentException() throws IOException {
+        // Given: A YAML file with valid keys configuration
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When & Then: Call getPrimaryKeyAttribute with unknown attribute should throw IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            ReflectionTestUtils.invokeMethod(keysService, "getPrimaryKeyAttribute", "unknownAttribute", "default");
+        });
+        
+        assertEquals("Unknown attribute: unknownAttribute", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("getPrimaryKeyAttribute() should return defaultValue when the attribute is not set")
+    void getPrimaryKeyAttribute_WithMissingAttribute_ShouldReturnDefaultValue() throws IOException {
+        // Given: A YAML file with valid keys configuration but missing authority
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "alice-key-id"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg1234567890abcdef
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN PUBLIC KEY-----
+                      MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE1234567890abcdef
+                      -----END PUBLIC KEY-----
+                """;
+        
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        
+        // When: Call getPrimaryKeyAttribute with 'authority' which is missing. But getPrimaryKeyAttribute() is private, so we use reflection to invoke it.
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "getPrimaryKeyAttribute", "authority", "defaultAuthority");
+        
+        // Then: Should return the default value
+        assertEquals("defaultAuthority", result);
+    }
+
 }
