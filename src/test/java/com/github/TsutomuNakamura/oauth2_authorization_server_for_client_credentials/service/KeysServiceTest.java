@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateAuthorityDNDetector;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateAuthorityKeyIdentifierDetector;
 
 import java.io.IOException;
@@ -1136,5 +1137,137 @@ class KeysServiceTest {
         String result = (String) ReflectionTestUtils.invokeMethod(keysService, "autoDetectAuthority", certificatePem);
         // Then: Should return the fallback authority
         assertEquals("trent", result);
+    }
+
+    @Test
+    @DisplayName("autoDetectAuthority() should return null when keyIdentifierDetector.detectAuthority() return null and dnDetector.detectAuthority() also returns null")
+    void autoDetectAuthority_WithBothDetectorsReturningNull_ShouldReturnNull() throws IOException {
+        // Given: A YAML file with valid keys configuration (NO explicit authority configured)
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "ec-key-from-yaml"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcED3Y6jFH7w7TXUl
+                      uo8RDu9a9MzqWFc8Pw5y6ySE5gGhRANCAAQUd3SadD1hR0WKn3FssQw9IC/Olexb
+                      CDFCcneMiatm4M6D0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEO
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+                      aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+                      MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+                      BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+                      0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+                      MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+                      tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+                      BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+                      LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+                      bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+                      uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+                      -----END CERTIFICATE-----
+                chains:
+                  trent:
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIB0zCCAVqgAwIBAgICEAAwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
+                      YS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0zNTA4MDkwMzI5NDBaMCMx
+                      ITAfBgNVBAMMGHRyZW50LmludGVybS5leGFtcGxlLmNvbTB2MBAGByqGSM49AgEG
+                      BSuBBAAiA2IABJbducTjt4vyRQPIFQUvs96giJr4fcCbcTTaHXjqQAqFKQ0JNsYY
+                      XvYmI/ax8ZSuu/Y7j1c1dbe1fCzrrplJdG6EpHC26jtaM8E0xc7NsfM87krEFn2p
+                      x+J6X8Z7dg9zx6NmMGQwHQYDVR0OBBYEFLBjtm8nryugZ+1tt5sHrmVHnWXaMB8G
+                      A1UdIwQYMBaAFJl2eAkhqEYegUF5FPRTszadRjH3MBIGA1UdEwEB/wQIMAYBAf8C
+                      AQAwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA2cAMGQCMCGeK1WwMX0jmIK8
+                      Mr5d9/fTIPrIum8U/CGC/NVbsE7odQndftabkCaeXAE8s2VCqwIwS28/LNZblMs/
+                      QvfYwtRLaVz3Mt3P4eGuDW0KTHa+hK/Znn5qXfDSQrRMqJBjJTEg
+                      -----END CERTIFICATE-----
+                """;
+
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        String certificatePem = keysService.getPublicKey("alice");
+        // Mock keyIdentifierDetector to return null for detectAuthority()
+        CertificateAuthorityKeyIdentifierDetector keyIdentifierDetector = mock(CertificateAuthorityKeyIdentifierDetector.class);
+        when(keyIdentifierDetector.detectAuthority(any(), any())).thenReturn(null);
+        ReflectionTestUtils.setField(keysService, "keyIdentifierDetector", keyIdentifierDetector);
+        // Mock dnDetector to return null for detectAuthority()
+        CertificateAuthorityDNDetector dnDetector = mock(CertificateAuthorityDNDetector.class);
+        when(dnDetector.detectAuthority(any(), any())).thenReturn(null);
+        ReflectionTestUtils.setField(keysService, "dnDetector", dnDetector);
+        // When: Call autoDetectAuthority with a key name and fallback authority
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "autoDetectAuthority", certificatePem);
+        // Then: Should return null
+        assertNull(result);
+    }
+
+    @Test
+    @DisplayName("autoDetectAuthority() should return null when keyIdentifierDetector.detectAuthority() throws exception")
+    void autoDetectAuthority_WithKeyIdentifierDetectorThrowingException_ShouldReturnNull() throws IOException {
+        // Given: A YAML file with valid keys configuration (NO explicit authority configured)
+        String yaml = """
+                config:
+                  primary-key: "alice"
+                keys:
+                  alice:
+                    keyId: "ec-key-from-yaml"
+                    algorithm: "ES256"
+                    curve: "P-256"
+                    private: |
+                      -----BEGIN PRIVATE KEY-----
+                      MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcED3Y6jFH7w7TXUl
+                      uo8RDu9a9MzqWFc8Pw5y6ySE5gGhRANCAAQUd3SadD1hR0WKn3FssQw9IC/Olexb
+                      CDFCcneMiatm4M6D0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEO
+                      -----END PRIVATE KEY-----
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+                      aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+                      MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+                      BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+                      0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+                      MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+                      tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+                      BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+                      LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+                      bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+                      uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+                      -----END CERTIFICATE-----
+                chains:
+                  trent:
+                    public: |
+                      -----BEGIN CERTIFICATE-----
+                      MIIB0zCCAVqgAwIBAgICEAAwCgYIKoZIzj0EAwIwHjEcMBoGA1UEAwwTaXZhbi5j
+                      YS5leGFtcGxlLmNvbTAeFw0yNTA4MTEwMzI5NDBaFw0zNTA4MDkwMzI5NDBaMCMx
+                      ITAfBgNVBAMMGHRyZW50LmludGVybS5leGFtcGxlLmNvbTB2MBAGByqGSM49AgEG
+                      BSuBBAAiA2IABJbducTjt4vyRQPIFQUvs96giJr4fcCbcTTaHXjqQAqFKQ0JNsYY
+                      XvYmI/ax8ZSuu/Y7j1c1dbe1fCzrrplJdG6EpHC26jtaM8E0xc7NsfM87krEFn2p
+                      x+J6X8Z7dg9zx6NmMGQwHQYDVR0OBBYEFLBjtm8nryugZ+1tt5sHrmVHnWXaMB8G
+                      A1UdIwQYMBaAFJl2eAkhqEYegUF5FPRTszadRjH3MBIGA1UdEwEB/wQIMAYBAf8C
+                      AQAwDgYDVR0PAQH/BAQDAgEGMAoGCCqGSM49BAMCA2cAMGQCMCGeK1WwMX0jmIK8
+                      Mr5d9/fTIPrIum8U/CGC/NVbsE7odQndftabkCaeXAE8s2VCqwIwS28/LNZblMs/
+                      QvfYwtRLaVz3Mt3P4eGuDW0KTHa+hK/Znn5qXfDSQrRMqJBjJTEg
+                      -----END CERTIFICATE-----
+                """;
+
+        Path yamlFile = tempDir.resolve("keys.yml");
+        Files.writeString(yamlFile, yaml);
+        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
+        keysService.init();
+        String certificatePem = keysService.getPublicKey("alice");
+        // Mock keyIdentifierDetector to throw exception for detectAuthority()
+        CertificateAuthorityKeyIdentifierDetector keyIdentifierDetector = mock(CertificateAuthorityKeyIdentifierDetector.class);
+        when(keyIdentifierDetector.detectAuthority(any(), any())).thenThrow(new RuntimeException("Detection error"));
+        ReflectionTestUtils.setField(keysService, "keyIdentifierDetector", keyIdentifierDetector);
+        // When: Call autoDetectAuthority with a key name and fallback authority
+        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "autoDetectAuthority", certificatePem);
+        // Then: Should return null
+        assertNull(result);
     }
 }
