@@ -209,4 +209,42 @@ class ClientRoleAuthorizationFilterTest {
         verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
         verify(mockWriter, times(1)).write(contains("Authorization check failed"));
     }
+
+    // ========== extractClientIdFromRequest() Tests ==========
+
+    @Test
+    @DisplayName("extractClientIdFromRequest() should return client ID from valid Basic Auth header")
+    void extractClientIdFromRequest_WithValidBasicAuthHeader_ShouldReturnClientId() throws Exception {
+        // Given: A request with valid Basic Auth header
+        String clientId = "test-client-id";
+        String clientSecret = "test-client-secret";
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes());
+        
+        when(mockRequest.getHeader("Authorization")).thenReturn(authHeader);
+        // When: Extracting client ID from request
+        // Use reflection to access private method
+        var method = ClientRoleAuthorizationFilter.class.getDeclaredMethod("extractClientIdFromRequest", HttpServletRequest.class);
+        method.setAccessible(true);
+        String result = (String) method.invoke(filter, mockRequest);
+        // Then: The correct client ID should be returned
+        assert result.equals(clientId);
+    }
+
+    @Test
+    @DisplayName("extractClientIdFromRequest() should return client_id from request parameter when instructions in try block throws exception")
+    void extractClientIdFromRequest_WhenExceptionInTryBlock_ShouldReturnClientIdFromParameter() throws Exception {
+        // Given: A request with invalid Basic Auth header and client_id parameter
+        String clientId = "param-client-id";
+        String invalidAuthHeader = "Basic invalid-base64";
+        
+        when(mockRequest.getHeader("Authorization")).thenReturn(invalidAuthHeader);
+        when(mockRequest.getParameter("client_id")).thenReturn(clientId);
+        // When: Extracting client ID from request
+        // Use reflection to access private method
+        var method = ClientRoleAuthorizationFilter.class.getDeclaredMethod("extractClientIdFromRequest", HttpServletRequest.class);
+        method.setAccessible(true);
+        String result = (String) method.invoke(filter, mockRequest);
+        // Then: The client_id parameter should be returned
+        assert result.equals(clientId);
+    }
 }
