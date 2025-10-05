@@ -2,9 +2,11 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateAuthorityDNDetector;
@@ -13,28 +15,34 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.Key;
 import java.security.KeyPair;
 import java.util.Set;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ClassPathResource;
 
+@ExtendWith(MockitoExtension.class)
 class KeysServiceTest {
 
     private KeysService keysService;
+    
+    @Mock
+    private CertificateAuthorityKeyIdentifierDetector mockKeyIdentifierDetector;
+    
+    @Mock
+    private CertificateAuthorityDNDetector mockDnDetector;
     
     @TempDir
     Path tempDir;
 
     @BeforeEach
     void setUp() {
+        // Use default constructor for most tests (real detectors)
         keysService = new KeysService();
     }
 
@@ -1258,16 +1266,45 @@ class KeysServiceTest {
 
         Path yamlFile = tempDir.resolve("keys.yml");
         Files.writeString(yamlFile, yaml);
-        ReflectionTestUtils.setField(keysService, "keysFilePath", yamlFile.toString());
-        keysService.init();
-        String certificatePem = keysService.getPublicKey("alice");
+        
+        // Create a KeysService instance with MOCKED detectors for this specific test
+        KeysService testService = new KeysService(mockKeyIdentifierDetector, mockDnDetector);
+        ReflectionTestUtils.setField(testService, "keysFilePath", yamlFile.toString());
+        testService.init();
+        
+        String certificatePem = testService.getPublicKey("alice");
+        
         // Mock keyIdentifierDetector to throw exception for detectAuthority()
-        CertificateAuthorityKeyIdentifierDetector keyIdentifierDetector = mock(CertificateAuthorityKeyIdentifierDetector.class);
-        when(keyIdentifierDetector.detectAuthority(any(), any())).thenThrow(new RuntimeException("Detection error"));
-        ReflectionTestUtils.setField(keysService, "keyIdentifierDetector", keyIdentifierDetector);
-        // When: Call autoDetectAuthority with a key name and fallback authority
-        String result = (String) ReflectionTestUtils.invokeMethod(keysService, "autoDetectAuthority", certificatePem);
-        // Then: Should return null
+        when(mockKeyIdentifierDetector.detectAuthority(anyString(), anyMap()))
+            .thenThrow(new RuntimeException("Detection error"));
+        
+        // When: Call autoDetectAuthority with a certificate
+        String result = (String) ReflectionTestUtils.invokeMethod(testService, "autoDetectAuthority", certificatePem);
+        
+        // Then: Should return null (exception is caught and logged)
         assertNull(result);
+    }
+    
+    // ========== Constructor Tests ==========
+    
+    @Test
+    @DisplayName("Constructor with injected detectors should initialize fields correctly")
+    void constructor_WithInjectedDetectors_ShouldInitializeCorrectly() {
+        // Given: Mock detectors (from @Mock fields)
+        
+        // When: Create KeysService with injected mocks (using @Autowired constructor)
+        KeysService service = new KeysService(mockKeyIdentifierDetector, mockDnDetector);
+        
+        // Then: Service should be created successfully
+        assertNotNull(service, "Service should be created");
+        
+        // Verify detectors are properly injected by using reflection
+        Object injectedKeyIdDetector = ReflectionTestUtils.getField(service, "keyIdentifierDetector");
+        Object injectedDnDetector = ReflectionTestUtils.getField(service, "dnDetector");
+        
+        assertSame(mockKeyIdentifierDetector, injectedKeyIdDetector, 
+            "KeyIdentifierDetector should be the injected mock");
+        assertSame(mockDnDetector, injectedDnDetector, 
+            "DNDetector should be the injected mock");
     }
 }
