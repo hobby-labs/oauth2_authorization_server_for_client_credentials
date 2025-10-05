@@ -185,4 +185,28 @@ class ClientRoleAuthorizationFilterTest {
         verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
         verify(mockWriter, times(1)).write(contains("{\"error\":\"access_denied\",\"error_description\":\"Insufficient privileges. CLIENT role required.\"}"));
     }
+
+    @Test
+    @DisplayName("doFilterInternal() should send 403 response when an exception occurs during processing")
+    void doFilterInternal_WhenExceptionOccurs_ShouldSendForbiddenResponse() throws Exception {
+        // Given: A POST request to /oauth2/token that causes an exception
+        String clientId = "test-client-id";
+        String clientSecret = "test-client-secret";
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes());
+        
+        when(mockRequest.getRequestURI()).thenReturn("/oauth2/token");
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getHeader("Authorization")).thenReturn(authHeader);
+        // Set up mock clients service to throw exception
+        when(mockClientsService.getAllClients()).thenThrow(new RuntimeException("Database error"));
+        // Reponse writer mock setup. Mock writer for response
+        PrintWriter mockWriter = mock(PrintWriter.class);
+        when(mockResponse.getWriter()).thenReturn(mockWriter);
+        // When: Filter processes the request
+        filter.doFilterInternal(mockRequest, mockResponse, mockFilterChain);
+        // Then: 403 Forbidden response should be sent
+        verify(mockResponse, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
+        verify(mockWriter, times(1)).write(contains("Authorization check failed"));
+    }
 }
