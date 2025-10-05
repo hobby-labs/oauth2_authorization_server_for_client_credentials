@@ -2,6 +2,7 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
@@ -25,6 +26,8 @@ import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credent
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.KeyConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.KeyLoader;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateAuthorityKeyIdentifierDetector;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateAuthorityDNDetector;
 
 /**
  * Service for managing cryptographic keys from YAML configuration files.
@@ -87,14 +90,36 @@ public class KeysService {
     /** Type-safe configuration loaded from the YAML file. */
     private KeysConfiguration keysConfiguration;
     
+    /** Detector for certificate authority identification using key identifiers. */
+    private final CertificateAuthorityKeyIdentifierDetector keyIdentifierDetector;
+    
+    /** Detector for certificate authority identification using Distinguished Names. */
+    private final CertificateAuthorityDNDetector dnDetector;
+    
     /**
-     * Constructs a new KeysService instance.
+     * Constructs a new KeysService instance with injected detectors.
      * 
      * <p>Configuration loading is performed during application startup via
      * the {@code @PostConstruct} method for fail-fast initialization.</p>
+     * 
+     * @param keyIdentifierDetector detector for key identifier-based authority detection
+     * @param dnDetector detector for DN-based authority detection
+     */
+    @Autowired
+    public KeysService(CertificateAuthorityKeyIdentifierDetector keyIdentifierDetector,
+                      CertificateAuthorityDNDetector dnDetector) {
+        this.keyIdentifierDetector = keyIdentifierDetector;
+        this.dnDetector = dnDetector;
+    }
+    
+    /**
+     * Constructs a new KeysService instance with default detectors.
+     * 
+     * <p>This constructor is for testing purposes only.</p>
      */
     public KeysService() {
-        // Configuration will be loaded during @PostConstruct initialization
+        this.keyIdentifierDetector = new CertificateAuthorityKeyIdentifierDetector();
+        this.dnDetector = new CertificateAuthorityDNDetector();
     }
     
     /**
@@ -525,7 +550,7 @@ public class KeysService {
     /**
      * Automatically detects the issuing authority for a certificate by comparing
      * the certificate's Authority Key Identifier with available chain certificates'
-     * Subject Key Identifiers.
+     * Subject Key Identifiers, falling back to DN matching if needed.
      * 
      * <p>This method uses the X.509v3 extensions as defined in RFC 5280:</p>
      * <ul>
@@ -541,14 +566,17 @@ public class KeysService {
      */
     private String autoDetectAuthority(String certificatePem) {
         try {
+            // Get all available chains
+            Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
+            
             // First try using X.509v3 Key Identifiers (preferred method)
-            String authorityByKeyId = autoDetectAuthorityByKeyIdentifiers(certificatePem);
+            String authorityByKeyId = keyIdentifierDetector.detectAuthority(certificatePem, chains);
             if (authorityByKeyId != null) {
                 return authorityByKeyId;
             }
             
             // Fall back to Subject/Issuer DN matching for compatibility
-            String authorityByDN = autoDetectAuthorityByDN(certificatePem);
+            String authorityByDN = dnDetector.detectAuthority(certificatePem, chains);
             if (authorityByDN != null) {
                 logger.debug("Fallback: Using DN-based authority detection for certificate");
                 return authorityByDN;
@@ -559,109 +587,6 @@ public class KeysService {
             
         } catch (Exception e) {
             logger.warn("Error during authority auto-detection: {}", e.getMessage());
-            return null;
-        }
-    }
-    
-    /**
-     * Detects authority using X.509v3 Subject Key Identifier and Authority Key Identifier extensions.
-     * 
-     * <p>This is the preferred method as defined in RFC 5280 Section 4.2.1.1 and 4.2.1.2.
-     * The Authority Key Identifier of the certificate should match the Subject Key Identifier
-     * of the issuing CA certificate.</p>
-     * 
-     * @param certificatePem the PEM-encoded certificate to analyze
-     * @return the name of the matching authority or null if no match found
-     */
-    private String autoDetectAuthorityByKeyIdentifiers(String certificatePem) {
-        try {
-            // Extract the Authority Key Identifier from the certificate
-            String authorityKeyId = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractAuthorityKeyIdentifier(certificatePem);
-            if (authorityKeyId == null) {
-                logger.debug("Certificate does not contain Authority Key Identifier extension");
-                return null;
-            }
-            
-            // Get all available chains
-            Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
-            if (chains == null) {
-                return null;
-            }
-            
-            // Check each chain certificate to see if its SKI matches the certificate's AKI
-            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
-                String chainName = chainEntry.getKey();
-                ChainConfiguration chainData = chainEntry.getValue();
-                String chainCertPem = chainData.getPublicKey();
-                
-                if (chainCertPem != null) {
-                    try {
-                        String subjectKeyId = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractSubjectKeyIdentifier(chainCertPem);
-                        if (authorityKeyId.equals(subjectKeyId)) {
-                            logger.debug("Auto-detected authority '{}' using X.509v3 Key Identifiers (AKI: {})", chainName, authorityKeyId);
-                            return chainName;
-                        }
-                    } catch (Exception e) {
-                        logger.warn("Error extracting SKI from chain certificate '{}': {}", chainName, e.getMessage());
-                    }
-                }
-            }
-            
-            logger.debug("No matching authority found for Authority Key Identifier: {}", authorityKeyId);
-            return null;
-            
-        } catch (Exception e) {
-            logger.warn("Error during key identifier-based authority detection: {}", e.getMessage());
-            return null;
-        }
-    }
-    
-    /**
-     * Detects authority using Subject and Issuer Distinguished Names (fallback method).
-     * 
-     * <p>This method is kept for backward compatibility with certificates that may not
-     * have proper X.509v3 key identifier extensions.</p>
-     * 
-     * @param certificatePem the PEM-encoded certificate to analyze
-     * @return the name of the matching authority or null if no match found
-     */
-    private String autoDetectAuthorityByDN(String certificatePem) {
-        try {
-            // Extract the issuer CN from the certificate
-            String issuerCN = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractIssuerCN(certificatePem);
-            if (issuerCN == null) {
-                return null;
-            }
-            
-            // Get all available chains
-            Map<String, ChainConfiguration> chains = keysConfiguration.getChains();
-            if (chains == null) {
-                return null;
-            }
-            
-            // Check each chain certificate to see if its subject matches the issuer
-            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
-                String chainName = chainEntry.getKey();
-                ChainConfiguration chainData = chainEntry.getValue();
-                String chainCertPem = chainData.getPublicKey();
-                
-                if (chainCertPem != null) {
-                    try {
-                        String chainSubjectCN = com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util.CertificateChainBuilder.extractSubjectCN(chainCertPem);
-                        if (issuerCN.equals(chainSubjectCN)) {
-                            logger.debug("Auto-detected authority '{}' using DN matching (Issuer: {})", chainName, issuerCN);
-                            return chainName;
-                        }
-                    } catch (Exception e) {
-                        logger.warn("Error parsing chain certificate for '{}': {}", chainName, e.getMessage());
-                    }
-                }
-            }
-            
-            return null;
-            
-        } catch (Exception e) {
-            logger.warn("Error during DN-based authority detection: {}", e.getMessage());
             return null;
         }
     }
