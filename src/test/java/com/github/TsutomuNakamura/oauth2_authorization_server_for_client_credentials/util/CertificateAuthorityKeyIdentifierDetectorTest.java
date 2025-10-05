@@ -165,4 +165,39 @@ class CertificateAuthorityKeyIdentifierDetectorTest {
             assertNull(result, "Authority should not be detected when AKI extraction fails");
         }
     }
+
+    // ========== extractPublicKey() Tests ==========
+
+    @Test
+    @DisplayName("extractPublicKey() should return public key PEM from ChainConfiguration")
+    void extractPublicKey_ValidChainConfiguration_ShouldReturnPublicKey() {
+        // Given: A ChainConfiguration with a valid public key PEM
+         CertificateAuthorityKeyIdentifierDetector detector = new CertificateAuthorityKeyIdentifierDetector();
+        String publicKeyPem = "-----BEGIN CERTIFICATE-----\nMIIB...IDAQAB\n-----END CERTIFICATE-----";
+        ChainConfiguration chainData = new ChainConfiguration(publicKeyPem);
+
+        // When: Extract the public key using reflection to access private method
+        String result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(detector, "extractPublicKey", chainData);
+        // When: Extract the public key --- IGNORE ---
+        // String result = detector.extractPublicKey(chainData); --- IGNORE --- 
+        // Then: Should return the public key PEM
+        assertNotNull(result, "Public key PEM should be extracted");
+        assertEquals(publicKeyPem, result, "Extracted public key PEM should match the input");
+    }
+
+    @Test
+    @DisplayName("extractPublicKey() should return null when chainData is null")
+    void extractPublicKey_NullChainData_ShouldReturnNull() {
+        // Given: A null ChainConfiguration
+         CertificateAuthorityKeyIdentifierDetector detector = new CertificateAuthorityKeyIdentifierDetector();
+        ChainConfiguration chainData = null;
+
+        // When: Extract the public key using reflection to access private method
+        String result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(detector, "extractPublicKey", chainData);
+        // When: Extract the public key --- IGNORE ---
+        // String result = detector.extractPublicKey(chainData); --- IGNORE --- 
+
+        // Then: Should return null since chainData is null
+        assertNull(result, "Public key PEM should be null when chainData is null");
+    }
 }

@@ -60,9 +60,9 @@ public class CertificateAuthorityKeyIdentifierDetector implements CertificateAut
             }
             
             // Check each chain certificate to see if its SKI matches the certificate's AKI
-            for (Map.Entry<String, ?> chainEntry : chains.entrySet()) {
+            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
                 String chainName = chainEntry.getKey();
-                Object chainData = chainEntry.getValue();
+                ChainConfiguration chainData = chainEntry.getValue();
                 String chainCertPem = extractPublicKey(chainData);
                 
                 if (chainCertPem != null) {
@@ -88,23 +88,15 @@ public class CertificateAuthorityKeyIdentifierDetector implements CertificateAut
     }
     
     /**
-     * Extracts the public key from a chain configuration object.
-     * 
-     * <p>This method uses reflection to handle different types of chain configuration objects
-     * that have a getPublicKey() method.</p>
+     * Extracts the public key (certificate) from a chain configuration object.
      * 
      * @param chainData the chain configuration object
      * @return the public key PEM string or null if not found
      */
-    private String extractPublicKey(Object chainData) {
-        try {
-            // Use reflection to call getPublicKey() method
-            java.lang.reflect.Method method = chainData.getClass().getMethod("getPublicKey");
-            Object result = method.invoke(chainData);
-            return result instanceof String ? (String) result : null;
-        } catch (Exception e) {
-            logger.warn("Error extracting public key from chain data: {}", e.getMessage());
+    private String extractPublicKey(ChainConfiguration chainData) {
+        if (chainData == null) {
             return null;
         }
+        return chainData.getPublicKey();
     }
 }
