@@ -162,4 +162,6 @@ class CertificateAuthorityDNDetectorTest {
             assertNull(result, "Authority should not be detected when issuer CN extraction fails");
         }
     }
+
+    // =========== extractPublicKey() Tests ==========
 }

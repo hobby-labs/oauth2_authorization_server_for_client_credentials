@@ -2,6 +2,8 @@ package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_creden
 
 import java.util.Map;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
+
 /**
  * Interface for certificate authority detection strategies.
  * 
@@ -30,5 +32,5 @@ public interface CertificateAuthorityDetector {
      *               names and values are chain configuration objects with a getPublicKey() method
      * @return the name of the matching authority or null if no match is found
      */
-    String detectAuthority(String certificatePem, Map<String, ?> chains);
+    String detectAuthority(String certificatePem, Map<String, ChainConfiguration> chains);
 }

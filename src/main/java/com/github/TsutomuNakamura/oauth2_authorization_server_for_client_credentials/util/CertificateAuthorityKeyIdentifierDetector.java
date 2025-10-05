@@ -4,6 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
+
 import java.util.Map;
 
 /**
@@ -43,7 +45,7 @@ public class CertificateAuthorityKeyIdentifierDetector implements CertificateAut
      * @return the name of the matching authority or null if no match found
      */
     @Override
-    public String detectAuthority(String certificatePem, Map<String, ?> chains) {
+    public String detectAuthority(String certificatePem, Map<String, ChainConfiguration> chains) {
         try {
             // Extract the Authority Key Identifier from the certificate
             String authorityKeyId = CertificateChainBuilder.extractAuthorityKeyIdentifier(certificatePem);

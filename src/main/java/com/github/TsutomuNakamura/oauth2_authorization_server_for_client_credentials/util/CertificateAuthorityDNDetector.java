@@ -4,7 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
+import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
+
 import java.util.Map;
 
 /**
@@ -44,7 +45,7 @@ public class CertificateAuthorityDNDetector implements CertificateAuthorityDetec
      * @return the name of the matching authority or null if no match found
      */
     @Override
-    public String detectAuthority(String certificatePem, Map<String, ?> chains) {
+    public String detectAuthority(String certificatePem, Map<String, ChainConfiguration> chains) {
         try {
             // Extract the issuer CN from the certificate
             String issuerCN = CertificateChainBuilder.extractIssuerCN(certificatePem);
@@ -58,9 +59,9 @@ public class CertificateAuthorityDNDetector implements CertificateAuthorityDetec
             }
             
             // Check each chain certificate to see if its subject matches the issuer
-            for (Map.Entry<String, ?> chainEntry : chains.entrySet()) {
+            for (Map.Entry<String, ChainConfiguration> chainEntry : chains.entrySet()) {
                 String chainName = chainEntry.getKey();
-                Object chainData = chainEntry.getValue();
+                ChainConfiguration chainData = chainEntry.getValue();
                 String chainCertPem = extractPublicKey(chainData);
                 
                 if (chainCertPem != null) {
@@ -85,23 +86,15 @@ public class CertificateAuthorityDNDetector implements CertificateAuthorityDetec
     }
     
     /**
-     * Extracts the public key from a chain configuration object.
-     * 
-     * <p>This method uses reflection to handle different types of chain configuration objects
-     * that have a getPublicKey() method.</p>
+     * Extracts the public key (certificate) from a chain configuration object.
      * 
      * @param chainData the chain configuration object
      * @return the public key PEM string or null if not found
      */
-    private String extractPublicKey(Object chainData) {
-        try {
-            // Use reflection to call getPublicKey() method
-            Method method = chainData.getClass().getMethod("getPublicKey");
-            Object result = method.invoke(chainData);
-            return result instanceof String ? (String) result : null;
-        } catch (Exception e) {
-            logger.warn("Error extracting public key from chain data: {}", e.getMessage());
+    private String extractPublicKey(ChainConfiguration chainData) {
+        if (chainData == null) {
             return null;
         }
+        return chainData.getPublicKey();
     }
 }
