@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
@@ -95,7 +96,7 @@ public class CertificateAuthorityDNDetector implements CertificateAuthorityDetec
     private String extractPublicKey(Object chainData) {
         try {
             // Use reflection to call getPublicKey() method
-            java.lang.reflect.Method method = chainData.getClass().getMethod("getPublicKey");
+            Method method = chainData.getClass().getMethod("getPublicKey");
             Object result = method.invoke(chainData);
             return result instanceof String ? (String) result : null;
         } catch (Exception e) {
