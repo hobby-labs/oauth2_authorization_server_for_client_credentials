@@ -121,4 +121,48 @@ class CertificateAuthorityKeyIdentifierDetectorTest {
         // Then: Should return null since no chains are available
         assertNull(result, "Authority should not be detected when no chains are provided");
     }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when CertificateChainBuilder.extractSubjectKeyIdentifier() throws exception")
+    void detectAuthority_SubjectKeyIdentifierExtractionThrows_ShouldReturnNull() {
+        // Given: Alice's certificate and chains containing trent's certificate
+        Map<String, ChainConfiguration> chains = new HashMap<>();
+        ChainConfiguration trentChain = new ChainConfiguration(TRENT_CERT);
+        chains.put("trent", trentChain);
+
+        // Mock the static methods to throw exception during SKI extraction
+        try (MockedStatic<CertificateChainBuilder> mockedStatic = Mockito.mockStatic(CertificateChainBuilder.class)) {
+            mockedStatic.when(() -> CertificateChainBuilder.extractAuthorityKeyIdentifier(ALICE_CERT))
+                        .thenReturn("mocked-aki-value");
+            mockedStatic.when(() -> CertificateChainBuilder.extractSubjectKeyIdentifier(TRENT_CERT))
+                        .thenThrow(new RuntimeException("Simulated parsing error"));
+
+            // When: Detect authority for alice's certificate
+            String result = detector.detectAuthority(ALICE_CERT, chains);
+
+            // Then: Should return null due to exception during SKI extraction
+            assertNull(result, "Authority should not be detected when SKI extraction fails");
+        }
+    }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when CertificateChainBuilder.extractAuthorityKeyIdentifier() throws exception")
+    void detectAuthority_AuthorityKeyIdentifierExtractionThrows_ShouldReturnNull() {
+        // Given: Alice's certificate and chains containing trent's certificate
+        Map<String, ChainConfiguration> chains = new HashMap<>();
+        ChainConfiguration trentChain = new ChainConfiguration(TRENT_CERT);
+        chains.put("trent", trentChain);
+
+        // Mock the static method to throw exception during AKI extraction
+        try (MockedStatic<CertificateChainBuilder> mockedStatic = Mockito.mockStatic(CertificateChainBuilder.class)) {
+            mockedStatic.when(() -> CertificateChainBuilder.extractAuthorityKeyIdentifier(ALICE_CERT))
+                        .thenThrow(new RuntimeException("Simulated parsing error"));
+
+            // When: Detect authority for alice's certificate
+            String result = detector.detectAuthority(ALICE_CERT, chains);
+
+            // Then: Should return null due to exception during AKI extraction
+            assertNull(result, "Authority should not be detected when AKI extraction fails");
+        }
+    }
 }
