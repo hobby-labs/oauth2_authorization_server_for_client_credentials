@@ -92,4 +92,19 @@ class ClientRoleAuthorizationFilterTest {
         verify(mockFilterChain, times(1)).doFilter(mockRequest, mockResponse);
         verify(mockResponse, never()).setStatus(anyInt());
     }
+
+    @Test
+    @DisplayName("doFilterInternal() should continue filter chain when method is not POST")
+    void doFilterInternal_WhenMethodIsNotPost_ShouldContinueFilterChain() throws Exception {
+        // Given: A GET request to a protected endpoint
+        when(mockRequest.getRequestURI()).thenReturn("/oauth2/token");
+        when(mockRequest.getMethod()).thenReturn("GET");
+        
+        // When: Filter processes the request
+        filter.doFilterInternal(mockRequest, mockResponse, mockFilterChain);
+        
+        // Then: Request should be allowed to proceed through filter chain
+        verify(mockFilterChain, times(1)).doFilter(mockRequest, mockResponse);
+        verify(mockResponse, never()).setStatus(anyInt());
+    }
 }
