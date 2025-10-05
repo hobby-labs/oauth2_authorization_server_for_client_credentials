@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.model.ClientConfiguration;
@@ -90,5 +91,57 @@ class RegisteredClientFactoryTest {
         
         assertEquals("Client configuration cannot be null", exception.getMessage(),
                 "Exception message should indicate null configuration");
+    }
+
+    // ========== createRegisteredClient(ClientConfiguration config, TokenSettings tokenSettings) Tests ==========
+
+    @Test
+    @DisplayName("createRegisteredClient() should return registered client when called with valid parameters")
+    void createRegisteredClient_WithValidParameters_ShouldReturnRegisteredClient() {
+        // Given: A valid client configuration and token settings
+        ClientConfiguration config = new ClientConfiguration(
+                "custom-client-id",
+                "custom-client-secret",
+                "Custom App",
+                List.of("custom-scope"),
+                Duration.ofHours(1),
+                List.of("CUSTOM")
+        );
+        TokenSettings tokenSettings = TokenSettings.builder()
+                .accessTokenTimeToLive(Duration.ofHours(1))
+                .build();
+        
+        // When: Create a RegisteredClient with custom token settings
+        RegisteredClient result = (RegisteredClient) factory.createRegisteredClient(config, tokenSettings);
+        
+        // Then: The RegisteredClient should be properly configured
+        assertNotNull(result, "RegisteredClient should not be null");
+        assertNotNull(result.getId(), "Client ID should be generated");
+        assertEquals("custom-client-id", result.getClientId(), "Client ID should match configuration");
+        assertEquals("{noop}custom-client-secret", result.getClientSecret(), "Client secret should have password encoder prefix");
+        assertEquals("Custom App", result.getClientName(), "Client name should match display name");
+        
+        // Verify authentication methods
+        assertTrue(result.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.CLIENT_SECRET_BASIC),
+                "Should support CLIENT_SECRET_BASIC authentication");
+        assertTrue(result.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.CLIENT_SECRET_POST),
+                "Should support CLIENT_SECRET_POST authentication");
+        assertEquals(2, result.getClientAuthenticationMethods().size(),
+                "Should have exactly 2 authentication methods");
+        
+        // Verify grant type
+        assertTrue(result.getAuthorizationGrantTypes().contains(AuthorizationGrantType.CLIENT_CREDENTIALS),
+                "Should support CLIENT_CREDENTIALS grant type");
+        assertEquals(1, result.getAuthorizationGrantTypes().size(),
+                "Should have exactly 1 grant type");
+        
+        // Verify scopes
+        assertTrue(result.getScopes().contains("custom-scope"), "Should have 'custom-scope'");
+        assertEquals(1, result.getScopes().size(), "Should have exactly 1 scope");
+        
+        // Verify token settings
+        assertNotNull(result.getTokenSettings(), "Token settings should not be null");
+        assertEquals(Duration.ofHours(1), result.getTokenSettings().getAccessTokenTimeToLive(),
+                "Token TTL should match provided token settings");
     }
 }
