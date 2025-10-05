@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.dto.ChainConfiguration;
 
@@ -164,4 +165,32 @@ class CertificateAuthorityDNDetectorTest {
     }
 
     // =========== extractPublicKey() Tests ==========
+
+    @Test
+    @DisplayName("extractPublicKey() should return public key PEM when getPublicKey() method exists and works")
+    void extractPublicKey_ValidChainData_ShouldReturnPublicKey() {
+        // Given: A ChainConfiguration with a valid public key
+        String publicKeyPem = "-----BEGIN CERTIFICATE-----\nMIIB...IDAQAB\n-----END CERTIFICATE-----";
+        ChainConfiguration chainData = new ChainConfiguration(publicKeyPem);
+        
+        // When: Extract the public key using reflection to access private method
+        String result = ReflectionTestUtils.invokeMethod(detector, "extractPublicKey", chainData);
+        
+        // Then: Should return the public key PEM
+        assertNotNull(result, "Public key PEM should be extracted");
+        assertEquals(publicKeyPem, result, "Extracted public key PEM should match the input");
+    }
+
+    @Test
+    @DisplayName("extractPublicKey() should return null when chainData is null")
+    void extractPublicKey_NullChainData_ShouldReturnNull() {
+        // Given: A null ChainConfiguration
+        ChainConfiguration chainData = null;
+        
+        // When: Extract the public key using reflection to access private method
+        String result = ReflectionTestUtils.invokeMethod(detector, "extractPublicKey", chainData);
+        
+        // Then: Should return null
+        assertNull(result, "Public key PEM should be null when chainData is null");
+    }
 }
