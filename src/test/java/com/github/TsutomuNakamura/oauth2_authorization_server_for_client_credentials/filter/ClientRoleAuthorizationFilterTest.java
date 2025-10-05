@@ -14,6 +14,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import java.io.PrintWriter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -106,5 +107,50 @@ class ClientRoleAuthorizationFilterTest {
         // Then: Request should be allowed to proceed through filter chain
         verify(mockFilterChain, times(1)).doFilter(mockRequest, mockResponse);
         verify(mockResponse, never()).setStatus(anyInt());
+    }
+
+    @Test
+    @DisplayName("doFilterInternal() should send 403 response when client ID cannot be extracted")
+    void doFilterInternal_WhenClientIdCannotBeExtracted_ShouldSendForbiddenResponse() throws Exception {
+        // Given: A POST request to /oauth2/token without Authorization header
+        when(mockRequest.getRequestURI()).thenReturn("/oauth2/token");
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getHeader("Authorization")).thenReturn(null);
+        // Reponse writer mock setup. Mock writer for response
+        PrintWriter mockWriter = mock(PrintWriter.class);
+        when(mockResponse.getWriter()).thenReturn(mockWriter);
+        
+        // When: Filter processes the request
+        filter.doFilterInternal(mockRequest, mockResponse, mockFilterChain);
+        
+        // Then: 403 Forbidden response should be sent
+        verify(mockResponse, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
+        verify(mockWriter, times(1)).write(contains("Client authentication required"));
+    }
+
+    @Test
+    @DisplayName("doFilterInternal() should sent 403 response when client not found for given client ID")
+    void doFilterInternal_WhenClientNotFound_ShouldSendForbiddenResponse() throws Exception {
+        // Given: A POST request to /oauth2/token with invalid client credentials
+        String clientId = "invalid-client-id";
+        String clientSecret = "invalid-client-secret";
+
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes());
+        
+        when(mockRequest.getRequestURI()).thenReturn("/oauth2/token");
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getHeader("Authorization")).thenReturn(authHeader);
+        // Set up mock clients service to return no clients
+        when(mockClientsService.getAllClients()).thenReturn(new HashMap<>());
+        // Reponse writer mock setup. Mock writer for response
+        PrintWriter mockWriter = mock(PrintWriter.class);
+        when(mockResponse.getWriter()).thenReturn(mockWriter);
+        // When: Filter processes the request
+        filter.doFilterInternal(mockRequest, mockResponse, mockFilterChain);
+        // Then: 403 Forbidden response should be sent
+        verify(mockResponse, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
+        verify(mockWriter, times(1)).write(contains("Invalid client credentials"));
     }
 }
