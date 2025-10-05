@@ -121,4 +121,45 @@ class CertificateAuthorityDNDetectorTest {
         // Then: Should return null as no chains are available
         assertNull(result, "Authority should not be detected when no chains are provided");
     }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when CertificateChainBuilder.extractSubjectCN() throws an exception")
+    void detectAuthority_ChainCertParsingError_ShouldReturnNull() {
+        // Given: Alice's certificate and a chain that will cause parsing error
+        Map<String, ChainConfiguration> chains = new HashMap<>();
+        ChainConfiguration invalidChain = new ChainConfiguration("invalid-cert-data");
+        chains.put("invalid-chain", invalidChain);
+
+        // Mock CertificateChainBuilder.extractSubjectCN to throw an exception for this test
+        try (MockedStatic<CertificateChainBuilder> mockedStatic = mockStatic(CertificateChainBuilder.class)) {
+            mockedStatic.when(() -> CertificateChainBuilder.extractIssuerCN(ALICE_CERT)).thenReturn("trent.example.com");
+            mockedStatic.when(() -> CertificateChainBuilder.extractSubjectCN("invalid-cert-data"))
+                        .thenThrow(new RuntimeException("Parsing error"));
+
+            // When: Detect authority for alice's certificate
+            String result = detector.detectAuthority(ALICE_CERT, chains);
+            // Then: Should return null as parsing the chain certificate fails
+            assertNull(result, "Authority should not be detected when chain certificate parsing fails");
+        }
+    }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when CertificateChainBuilder.extractIssuerCN() throws an exception")
+    void detectAuthority_IssuerCNExtractionError_ShouldReturnNull() {
+        // Given: Alice's certificate and a valid chain
+        Map<String, ChainConfiguration> chains = new HashMap<>();
+        ChainConfiguration trentChain = new ChainConfiguration(TRENT_CERT);
+        chains.put("trent", trentChain);
+
+        // Mock CertificateChainBuilder.extractIssuerCN to throw an exception for this test
+        try (MockedStatic<CertificateChainBuilder> mockedStatic = mockStatic(CertificateChainBuilder.class)) {
+            mockedStatic.when(() -> CertificateChainBuilder.extractIssuerCN(ALICE_CERT))
+                        .thenThrow(new RuntimeException("Extraction error"));
+
+            // When: Detect authority for alice's certificate
+            String result = detector.detectAuthority(ALICE_CERT, chains);
+            // Then: Should return null as extracting issuer CN fails
+            assertNull(result, "Authority should not be detected when issuer CN extraction fails");
+        }
+    }
 }
