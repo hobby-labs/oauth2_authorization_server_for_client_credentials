@@ -1,6 +1,8 @@
 package com.github.TsutomuNakamura.oauth2_authorization_server_for_client_credentials.util;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 
@@ -72,5 +74,51 @@ class CertificateAuthorityKeyIdentifierDetectorTest {
         // Then: Should return "trent" as the authority
         assertNotNull(result, "Authority should be detected using key identifiers");
         assertEquals("trent", result, "Should detect 'trent' as the issuing authority using AKI/SKI matching");
+    }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when CertificateChainBuilder.extractAuthorityKeyIdentifier() returns null")
+    void detectAuthority_NoAuthorityKeyIdentifier_ShouldReturnNull() {
+        // Given: A certificate without Authority Key Identifier extension
+        String certWithoutAki = """
+                -----BEGIN CERTIFICATE-----
+                MIIB/jCCAYSgAwIBAgICIAEwCgYIKoZIzj0EAwIwIzEhMB8GA1UEAwwYdHJlbnQu
+                aW50ZXJtLmV4YW1wbGUuY29tMB4XDTI1MDgxMTAzMjk0MFoXDTI3MDgxMTAzMjk0
+                MFowHzEdMBsGA1UEAwwUYWxpY2UuZWUuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIB
+                BggqhkjOPQMBBwNCAAQUd3SadD1hR0WKn3FssQw9IC/OlexbCDFCcneMiatm4M6D
+                0rhNWXL9j338nmmR+VqLprEZqcCc2s/AlXmUkVEOo4GrMIGoMAwGA1UdEwEB/wQC
+                MAAwHQYDVR0OBBYEFOJN5pu3nku0m1fLfzD+oYsBzJWAMB8GA1UdIwQYMBaAFLBj
+                tm8nryugZ+1tt5sHrmVHnWXaMA4GA1UdDwEB/wQEAwIHgDAnBgNVHSUEIDAeBggr
+                BgEFBQcDAQYIKwYBBQUHAwIGCCsGAQUFBwMDMB8GA1UdEQQYMBaCFGFsaWNlLmVl
+                LmV4YW1wbGUuY29tMAoGCCqGSM49BAMCA2gAMGUCMD6aRJr3O5fBkHJx14D+DhuJ
+                bBrGywkZlcULLGd7AWDbiPLaODKd2TcIjA128z9KagIxAPXRfzxiLX/vlEnJK2AZ
+                uJUCxFmqiKqkgwMjm6xhVpyiSNSztvo5JQUkKC6a6lrSTg==
+                -----END CERTIFICATE-----
+                """;
+        Map<String, ChainConfiguration> chains = new HashMap<>();
+        ChainConfiguration trentChain = new ChainConfiguration(TRENT_CERT);
+        chains.put("trent", trentChain);
+
+        // Mock the static method to return null for AKI extraction
+        try (MockedStatic<CertificateChainBuilder> mockedStatic = Mockito.mockStatic(CertificateChainBuilder.class)) {
+            mockedStatic.when(() -> CertificateChainBuilder.extractAuthorityKeyIdentifier(certWithoutAki)).thenReturn(null);
+            // When: Detect authority for the certificate without AKI
+            String result = detector.detectAuthority(certWithoutAki, chains);
+            // Then: Should return null since no AKI is present
+            assertNull(result, "Authority should not be detected when AKI is missing");
+        }
+    }
+
+    @Test
+    @DisplayName("detectAuthority() should return null when no chains are provided")
+    void detectAuthority_NoChains_ShouldReturnNull() {
+        // Given: Alice's certificate and no chains
+        Map<String, ChainConfiguration> chains = null;
+        
+        // When: Detect authority for alice's certificate with no chains
+        String result = detector.detectAuthority(ALICE_CERT, chains);
+        
+        // Then: Should return null since no chains are available
+        assertNull(result, "Authority should not be detected when no chains are provided");
     }
 }
