@@ -153,4 +153,36 @@ class ClientRoleAuthorizationFilterTest {
         verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
         verify(mockWriter, times(1)).write(contains("Invalid client credentials"));
     }
+
+    @Test
+    @DisplayName("doFilterInternal() should send 403 response when client lacks required ADMIN role for admin endpoint")
+    void doFilterInternal_WhenClientLacksRequiredRole_ShouldSendForbiddenResponse() throws Exception {
+        // Given: A POST request to /oauth2/token with valid client credentials but missing ADMIN role
+        String clientId = "introspector";
+        String client = "Introspector";
+        String clientSecret = "introspector-secret";
+        String authHeader = "Basic " + Base64.getEncoder().encodeToString((clientId + ":" + clientSecret).getBytes());
+        
+        when(mockRequest.getRequestURI()).thenReturn("/oauth2/token");
+        when(mockRequest.getMethod()).thenReturn("POST");
+        when(mockRequest.getHeader("Authorization")).thenReturn(authHeader);
+        // Set up mock clients service to return client without INTROSPECTOR role
+        Map<String, ClientDto> allClients = new HashMap<>();
+        ClientDto clientDto = new ClientDto();
+        clientDto.setClientId(clientId);
+        clientDto.setRoles(List.of("INTROSPECTOR")); // Missing INTROSPECTOR role
+        allClients.put(client, clientDto);
+        when(mockClientsService.getAllClients()).thenReturn(allClients);
+        when(mockClientsService.getClientId(client)).thenReturn(clientId);
+        when(mockClientsService.getClientRoles(client)).thenReturn(List.of("INTROSPECTOR"));
+        // Reponse writer mock setup. Mock writer for response
+        PrintWriter mockWriter = mock(PrintWriter.class);
+        when(mockResponse.getWriter()).thenReturn(mockWriter);
+        // When: Filter processes the request
+        filter.doFilterInternal(mockRequest, mockResponse, mockFilterChain);
+        // Then: 403 Forbidden response should be sent
+        verify(mockResponse, times(1)).setStatus(HttpServletResponse.SC_FORBIDDEN);
+        verify(mockFilterChain, never()).doFilter(mockRequest, mockResponse);
+        verify(mockWriter, times(1)).write(contains("{\"error\":\"access_denied\",\"error_description\":\"Insufficient privileges. CLIENT role required.\"}"));
+    }
 }
