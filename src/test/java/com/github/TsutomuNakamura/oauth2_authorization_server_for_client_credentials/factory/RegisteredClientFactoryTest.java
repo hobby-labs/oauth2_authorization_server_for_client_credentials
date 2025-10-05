@@ -144,4 +144,45 @@ class RegisteredClientFactoryTest {
         assertEquals(Duration.ofHours(1), result.getTokenSettings().getAccessTokenTimeToLive(),
                 "Token TTL should match provided token settings");
     }
+
+    @Test
+    @DisplayName("createResgisteredClient(ClientConfiguration config, TokenSettings tokenSettings) should throw IllegalArgumentException when configuration is null")
+    void createRegisteredClientWhichArgsClientConfigurationTokenSettings_WithNullConfiguration_ShouldThrowException() {
+        // Given: A null client configuration and valid token settings
+        ClientConfiguration config = null;
+        TokenSettings tokenSettings = TokenSettings.builder()
+                .accessTokenTimeToLive(Duration.ofMinutes(15))
+                .build();
+        
+        // When & Then: Creating a RegisteredClient should throw IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            factory.createRegisteredClient(config, tokenSettings);
+        }, "Expected createRegisteredClient() to throw, but it didn't");
+        
+        assertEquals("Client configuration cannot be null", exception.getMessage(),
+                "Exception message should indicate null configuration");
+    }
+
+    @Test
+    @DisplayName("createResgisteredClient(ClientConfiguration config, TokenSettings tokenSettings) should throw IllegalArgumentException when token settings is null")
+    void createRegisteredClientWhichArgsClientConfigurationTokenSettings_WithNullTokenSettings_ShouldThrowException() {
+        // Given: A valid client configuration and null token settings
+        ClientConfiguration config = new ClientConfiguration(
+                "null-token-client-id",
+                "null-token-client-secret",
+                "Null Token App",
+                List.of("null-scope"),
+                Duration.ofMinutes(20),
+                List.of("NULL")
+        );
+        TokenSettings tokenSettings = null;
+        
+        // When & Then: Creating a RegisteredClient should throw IllegalArgumentException
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
+            factory.createRegisteredClient(config, tokenSettings);
+        }, "Expected createRegisteredClient() to throw, but it didn't");
+        
+        assertEquals("Token settings cannot be null", exception.getMessage(),
+                "Exception message should indicate null token settings");
+    }
 }
